@@ -1,61 +1,63 @@
-# Zonnepanelen Monitor (Torhout)
+# Core & Nek/Trapezium Routine Coach (Webapp)
 
-Eenvoudige statische website om dagelijks meterstanden in te geven en je zonnepanelenverbruik op te volgen.
+Statische webapp voor wielrenners met ACDF C5-C6-voorzichtige routineplanning, checklist en weekprogressie.
 
-## Functies
-
-- Dagelijkse ingave: afname, injectie, productie, batterij laden/ontladen
-- Historische invoer via CSV-lijnen (bulk import)
-- Grafieken op basis van je data (geen externe libraries nodig)
-- Maanden met meeste zon aanduiden (met voorstel voor Torhout)
-- Lokale opslag in de browser (`localStorage`)
-
-## Lokaal testen
+## Lokaal draaien
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Open daarna [http://localhost:8080](http://localhost:8080).
+Open daarna `http://localhost:8080`.
 
-## Dataformaat voor historische invoer
+## Oefeningen aanpassen (zonder code)
 
-Per lijn:
+Alle routine-inhoud staat in:
 
-```txt
-YYYY-MM-DD,afname,injectie,productie,batterij_geladen,batterij_ontladen
+- `data/routine.json`
+
+Per dag gebruik je dit formaat:
+
+```json
+{
+  "maandag": {
+    "duration": "12-16 min",
+    "exercises": [
+      {
+        "id": "unieke-id",
+        "name": "Naam oefening",
+        "focus": "Core",
+        "note": "Sets/reps + cue",
+        "target": true
+      }
+    ]
+  }
+}
 ```
 
-Voorbeeld:
+Regels:
 
-```txt
-2026-03-01,8.4,2.1,11.7,3.0,2.6
-2026-03-02,7.2,1.7,10.3,2.4,2.1
-```
+- `id` moet uniek blijven, anders telt progressie fout.
+- `target: true` telt mee in de weekprogressie.
+- `target: false` blijft zichtbaar maar telt niet mee (optioneel/herstel).
 
-## Pushen naar GitHub + publiceren
+Na aanpassen van `data/routine.json`: commit + push naar `main`; GitHub Pages deployt automatisch.
 
-1. Maak een nieuwe GitHub repo.
-2. Koppel je lokale map aan die repo:
+## Publiceren via GitHub Pages
 
-```bash
-git remote add origin https://github.com/<jouw-username>/<repo-naam>.git
-```
+Deze repo bevat al een workflow (`.github/workflows/deploy-pages.yml`) die automatisch publiceert naar GitHub Pages.
 
-3. Commit en push:
+1. Push naar branch `main`.
+2. Ga in GitHub naar `Settings > Pages` en kies `Build and deployment: GitHub Actions`.
+3. Wacht tot de workflow klaar is in `Actions`.
 
-```bash
-git add index.html styles.css app.js README.md
-git commit -m "Nieuwe zonnepanelen monitor website"
-git branch -M main
-git push -u origin main
-```
+Je site staat live op:
 
-4. Activeer GitHub Pages in je repo:
-   - `Settings` > `Pages`
-   - `Source`: `Deploy from a branch`
-   - `Branch`: `main` + `/root`
+- `https://<jouw-github-username>.github.io/<repo-naam>/`
 
-Daarna staat je site live op:
+## Bestanden
 
-`https://<jouw-username>.github.io/<repo-naam>/`
+- `index.html`
+- `styles.css`
+- `app.js`
+- `data/routine.json`

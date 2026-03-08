@@ -3,120 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zonnepanelen Monitor - Torhout</title>
+    <title>Core & Nek/Trapezium Routine Coach</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="container">
-      <header class="hero card">
-        <p class="eyebrow">Locatie: Torhout</p>
-        <h1>Zonnepanelen & Meterstand Monitor</h1>
+    <main class="app-shell">
+      <section class="hero card">
+        <p class="eyebrow">Voor wielrenners</p>
+        <h1>Core & Nek/Trapezium Routine Coach</h1>
         <p>
-          Dagelijks meterstanden invullen, historische data importeren en grafieken bekijken voor verbruik,
-          productie en batterij (laden/ontladen).
+          Bouw een haalbare routine met sessies van 10-20 minuten. Focus op ACDF C5-C6-voorzichtige
+          oefeningen: neutrale nek, lage belasting, gecontroleerde uitvoering.
         </p>
-      </header>
+        <p class="disclaimer">
+          Let op: dit is algemene informatie, geen medisch advies. Stop bij uitstralende pijn, tintelingen,
+          krachtverlies of duizeligheid en overleg met je arts/fysiotherapeut.
+        </p>
+      </section>
 
-      <section class="grid">
-        <section class="card">
-          <h2>Dagelijkse ingave</h2>
-          <form id="dailyForm" class="form-grid" autocomplete="off">
-            <label>
-              Datum
-              <input id="date" name="date" type="date" required />
-            </label>
-            <label>
-              Afname van net (kWh)
-              <input id="gridImport" name="gridImport" type="number" min="0" step="0.01" required />
-            </label>
-            <label>
-              Injectie naar net (kWh)
-              <input id="gridExport" name="gridExport" type="number" min="0" step="0.01" required />
-            </label>
-            <label>
-              Productie zonnepanelen (kWh)
-              <input id="solarProduction" name="solarProduction" type="number" min="0" step="0.01" required />
-            </label>
-            <label>
-              Batterij geladen (kWh)
-              <input id="batteryCharge" name="batteryCharge" type="number" min="0" step="0.01" value="0" required />
-            </label>
-            <label>
-              Batterij ontladen (kWh)
-              <input id="batteryDischarge" name="batteryDischarge" type="number" min="0" step="0.01" value="0" required />
-            </label>
-            <button type="submit" class="btn">Opslaan / Bijwerken</button>
-          </form>
+      <section class="content-grid">
+        <section class="card planner">
+          <h2>Weekplanner</h2>
+          <div id="dayChips" class="chips"></div>
+
+          <div class="planner-header">
+            <h3 id="routineTitle">Routine</h3>
+            <p id="routineDuration" class="muted"></p>
+          </div>
+
+          <ul id="exerciseList" class="exercise-list"></ul>
         </section>
 
-        <aside class="card">
-          <h2>Samenvatting</h2>
-          <dl id="stats" class="stats-list"></dl>
-          <h3>Zonnigste maanden</h3>
-          <p class="muted">Tip voor Torhout: meestal april t/m augustus. Je kan zelf aanduiden.</p>
-          <div id="monthTags" class="month-tags"></div>
+        <aside class="card progress">
+          <h2>Jouw voortgang</h2>
+          <p id="doneText">Afgerond deze week: 0 / 12</p>
+          <div class="bar-track" aria-hidden="true">
+            <div id="barFill" class="bar-fill"></div>
+          </div>
+          <p id="consistencyText" class="consistency">0% consistentie</p>
+
+          <h3>Praktische tips voor op de fiets</h3>
+          <ul class="tips">
+            <li>Begin met 3 trainingsdagen en bouw op naar 4 als dit 2 weken pijnvrij gaat.</li>
+            <li>Houd je nek neutraal: kin licht ingetrokken, geen langdurig omhoog kijken.</li>
+            <li>Wissel elke 10-15 min je handpositie om schouder- en nekspanning te spreiden.</li>
+            <li>Na ritten langer dan 90 min: 5 min rustige mobility en ademhalingsoefeningen.</li>
+          </ul>
+
+          <h3>Veiligheidskader (ACDF C5-C6)</h3>
+          <ul class="tips warning">
+            <li>Vermijd snelle of eindstand nekrotaties en diepe nekextensie onder belasting.</li>
+            <li>Werk pijnarm (max 2/10), langzaam tempo, stop direct bij zenuwsymptomen.</li>
+            <li>Kies kwaliteit boven volume: korte sets met perfecte controle.</li>
+          </ul>
         </aside>
-      </section>
-
-      <section class="card">
-        <h2>Historische data invoeren (CSV)</h2>
-        <p class="muted">
-          Formaat per lijn: <code>YYYY-MM-DD,afname,injectie,productie,batterij_geladen,batterij_ontladen</code>
-        </p>
-        <textarea
-          id="bulkInput"
-          rows="6"
-          placeholder="2026-03-01,8.4,2.1,11.7,3.0,2.6\n2026-03-02,7.2,1.7,10.3,2.4,2.1"
-        ></textarea>
-        <div class="row">
-          <button id="importBtn" class="btn" type="button">Importeer historische data</button>
-          <p id="importFeedback" class="muted"></p>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="chart-header">
-          <h2>Grafieken</h2>
-          <label>
-            Periode
-            <select id="rangeSelect">
-              <option value="30">Laatste 30 dagen</option>
-              <option value="90">Laatste 90 dagen</option>
-              <option value="365">Laatste 12 maanden</option>
-              <option value="all">Alles</option>
-            </select>
-          </label>
-        </div>
-        <canvas id="chart" width="1200" height="420" aria-label="Energie grafiek"></canvas>
-        <div class="legend">
-          <span><i class="dot import"></i>Afname</span>
-          <span><i class="dot export"></i>Injectie</span>
-          <span><i class="dot solar"></i>Productie</span>
-          <span><i class="dot battery"></i>Netto batterij</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="table-header">
-          <h2>Overzicht data</h2>
-          <button id="clearBtn" class="btn danger" type="button">Alles wissen</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Datum</th>
-                <th>Afname</th>
-                <th>Injectie</th>
-                <th>Productie</th>
-                <th>Batt. laden</th>
-                <th>Batt. ontladen</th>
-                <th>Netto batterij</th>
-              </tr>
-            </thead>
-            <tbody id="dataRows"></tbody>
-          </table>
-        </div>
       </section>
     </main>
 
