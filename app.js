@@ -1,160 +1,22 @@
 const DAYS = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"];
 
-const PLAN = {
-  maandag: {
-    duration: "12-16 min",
-    exercises: [
-      {
-        id: "ma-plank",
-        name: "Dead Bug (rustig)",
-        focus: "Core",
-        note: "2 sets x 6-8/zijde. Onderrug neutraal, uitademen bij uitstrekken.",
-        target: true,
-      },
-      {
-        id: "ma-chin-tuck",
-        name: "Chin Tuck liggend",
-        focus: "Nek",
-        note: "2 sets x 8 herhalingen, 3 sec vasthouden. Geen pijn of tintelingen.",
-        target: true,
-      },
-      {
-        id: "ma-wall-slide",
-        name: "Wall Slide + Serratus reach",
-        focus: "Trapezium/Schouderblad",
-        note: "2 sets x 8. Schouders laag, nek lang.",
-        target: true,
-      },
-    ],
-  },
-  dinsdag: {
-    duration: "10-15 min",
-    exercises: [
-      {
-        id: "di-side-plank",
-        name: "Side Plank (knieën)",
-        focus: "Core",
-        note: "2 sets x 20-30 sec/zijde. Heup recht, adem rustig.",
-        target: true,
-      },
-      {
-        id: "di-isometric",
-        name: "Nek-isometrie met hand",
-        focus: "Nek",
-        note: "Voor/zijwaarts, lichte druk. 2 sets x 5 herhalingen van 5 sec.",
-        target: true,
-      },
-      {
-        id: "di-band-row",
-        name: "Band Row (lichte weerstand)",
-        focus: "Middenrug/Trapezium",
-        note: "2 sets x 10-12. Schouderbladen zacht naar achter/beneden.",
-        target: true,
-      },
-    ],
-  },
-  woensdag: {
-    duration: "8-12 min (herstel)",
-    exercises: [
-      {
-        id: "wo-breath",
-        name: "90/90 ademhaling",
-        focus: "Herstel",
-        note: "5 rustige ademcycli, focus op ribbeweging en ontspanning.",
-        target: false,
-      },
-      {
-        id: "wo-openbook",
-        name: "Open Book thoracaal (klein bereik)",
-        focus: "Mobiliteit",
-        note: "1-2 sets x 6/zijde. Nek neutraal, rotatie uit de bovenrug.",
-        target: false,
-      },
-    ],
-  },
-  donderdag: {
-    duration: "12-16 min",
-    exercises: [
-      {
-        id: "do-bird-dog",
-        name: "Bird Dog (korte hefboom)",
-        focus: "Core",
-        note: "2 sets x 6/zijde, 2 sec hold. Bekken stabiel.",
-        target: true,
-      },
-      {
-        id: "do-chin-tuck-wall",
-        name: "Chin Tuck tegen muur",
-        focus: "Nek",
-        note: "2 sets x 8. Achterhoofd licht tegen muur, geen forceren.",
-        target: true,
-      },
-      {
-        id: "do-lower-trap",
-        name: "Prone Y (duimen omhoog)",
-        focus: "Lage trapezius",
-        note: "2 sets x 8, zeer lichte belasting of zonder gewicht.",
-        target: true,
-      },
-    ],
-  },
-  vrijdag: {
-    duration: "10-14 min",
-    exercises: [
-      {
-        id: "vr-pallof",
-        name: "Pallof Press (licht)",
-        focus: "Core anti-rotatie",
-        note: "2 sets x 8/zijde. Romp stil, nek neutraal.",
-        target: true,
-      },
-      {
-        id: "vr-scap-set",
-        name: "Scapula setting + shrug release",
-        focus: "Nek/Trapezium",
-        note: "2 sets x 8 trage herhalingen. Span los, niet optrekken.",
-        target: true,
-      },
-      {
-        id: "vr-face-pull",
-        name: "Face Pull licht",
-        focus: "Achterste schouder/Trapezium",
-        note: "2 sets x 10. Ellebogen lager dan schouders, geen nekextensie.",
-        target: true,
-      },
-    ],
-  },
-  zaterdag: {
-    duration: "optioneel 6-10 min",
-    exercises: [
-      {
-        id: "za-walk",
-        name: "Wandeling + nekontspanning",
-        focus: "Herstel",
-        note: "10-20 min wandelen, schouders ontspannen, rustige ademhaling.",
-        target: false,
-      },
-    ],
-  },
-  zondag: {
-    duration: "rustdag",
-    exercises: [
-      {
-        id: "zo-checkin",
-        name: "Weekcheck houding op fiets",
-        focus: "Planning",
-        note: "Controleer zadel/stuurhoogte en nekcomfort voor komende week.",
-        target: false,
-      },
-    ],
-  },
+const DEFAULT_PLAN = {
+  maandag: { duration: "12-16 min", exercises: [] },
+  dinsdag: { duration: "10-15 min", exercises: [] },
+  woensdag: { duration: "8-12 min (herstel)", exercises: [] },
+  donderdag: { duration: "12-16 min", exercises: [] },
+  vrijdag: { duration: "10-14 min", exercises: [] },
+  zaterdag: { duration: "optioneel 6-10 min", exercises: [] },
+  zondag: { duration: "rustdag", exercises: [] },
 };
 
 const STORAGE_KEY = "routineCoach.v1";
+const DATA_URL = "./data/routine.json";
 
 const state = {
   selectedDay: localStorage.getItem("routineCoach.selectedDay") || "maandag",
   completed: loadCompleted(),
+  plan: DEFAULT_PLAN,
 };
 
 const dayChips = document.getElementById("dayChips");
@@ -164,6 +26,10 @@ const exerciseList = document.getElementById("exerciseList");
 const doneText = document.getElementById("doneText");
 const barFill = document.getElementById("barFill");
 const consistencyText = document.getElementById("consistencyText");
+
+function makeFallbackId(day) {
+  return `${day}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function loadCompleted() {
   try {
@@ -192,6 +58,46 @@ function toggleExercise(exerciseId, checked) {
   renderProgress();
 }
 
+function sanitizePlan(rawPlan) {
+  const sanitized = {};
+
+  DAYS.forEach((day) => {
+    const incomingDay = rawPlan?.[day] || {};
+    const duration = typeof incomingDay.duration === "string" ? incomingDay.duration : DEFAULT_PLAN[day].duration;
+
+    const incomingExercises = Array.isArray(incomingDay.exercises) ? incomingDay.exercises : [];
+    const exercises = incomingExercises
+      .filter((exercise) => exercise && typeof exercise === "object")
+      .map((exercise) => ({
+        id: typeof exercise.id === "string" && exercise.id.trim() ? exercise.id.trim() : makeFallbackId(day),
+        name: typeof exercise.name === "string" ? exercise.name : "Nieuwe oefening",
+        focus: typeof exercise.focus === "string" ? exercise.focus : "Algemeen",
+        note: typeof exercise.note === "string" ? exercise.note : "",
+        target: Boolean(exercise.target),
+      }));
+
+    sanitized[day] = { duration, exercises };
+  });
+
+  return sanitized;
+}
+
+async function loadPlan() {
+  try {
+    const response = await fetch(DATA_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    state.plan = sanitizePlan(data);
+  } catch (error) {
+    console.error("Kon routine.json niet laden, fallback naar lege planning.", error);
+    state.plan = DEFAULT_PLAN;
+  }
+
+  if (!state.plan[state.selectedDay]) {
+    state.selectedDay = DAYS[0];
+  }
+}
+
 function renderDayChips() {
   dayChips.innerHTML = "";
   DAYS.forEach((day) => {
@@ -209,7 +115,7 @@ function renderDayChips() {
 }
 
 function renderExercises() {
-  const dayPlan = PLAN[state.selectedDay];
+  const dayPlan = state.plan[state.selectedDay];
   routineTitle.textContent = `Routine voor ${state.selectedDay}`;
   routineDuration.textContent = `Duur: ${dayPlan.duration}`;
 
@@ -262,7 +168,7 @@ function renderExercises() {
 }
 
 function renderProgress() {
-  const allTargetExercises = Object.values(PLAN)
+  const allTargetExercises = Object.values(state.plan)
     .flatMap((dayPlan) => dayPlan.exercises)
     .filter((exercise) => exercise.target)
     .map((exercise) => exercise.id);
@@ -270,7 +176,7 @@ function renderProgress() {
   const uniqueTargets = new Set(allTargetExercises);
   let completedTargets = 0;
 
-  Object.entries(PLAN).forEach(([day, dayPlan]) => {
+  Object.entries(state.plan).forEach(([day, dayPlan]) => {
     const doneSet = new Set(state.completed[day] || []);
     dayPlan.exercises.forEach((exercise) => {
       if (exercise.target && doneSet.has(exercise.id)) {
@@ -282,12 +188,12 @@ function renderProgress() {
   const totalTargets = uniqueTargets.size;
   const progress = totalTargets ? Math.round((completedTargets / totalTargets) * 100) : 0;
 
-  const trainingDays = ["maandag", "dinsdag", "donderdag", "vrijdag"];
+  const trainingDays = DAYS.filter((day) => state.plan[day].exercises.some((exercise) => exercise.target));
   const daysHit = trainingDays.filter((day) => {
     const doneSet = new Set(state.completed[day] || []);
-    return PLAN[day].exercises.some((exercise) => exercise.target && doneSet.has(exercise.id));
+    return state.plan[day].exercises.some((exercise) => exercise.target && doneSet.has(exercise.id));
   }).length;
-  const consistency = Math.round((daysHit / trainingDays.length) * 100);
+  const consistency = trainingDays.length ? Math.round((daysHit / trainingDays.length) * 100) : 0;
 
   doneText.textContent = `Afgerond deze week: ${completedTargets} / ${totalTargets}`;
   barFill.style.width = `${progress}%`;
@@ -300,4 +206,9 @@ function render() {
   renderProgress();
 }
 
-render();
+async function start() {
+  await loadPlan();
+  render();
+}
+
+start();

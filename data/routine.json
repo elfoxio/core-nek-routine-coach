@@ -1,0 +1,149 @@
+{
+  "maandag": {
+    "duration": "12-16 min",
+    "exercises": [
+      {
+        "id": "ma-plank",
+        "name": "Dead Bug (rustig)",
+        "focus": "Core",
+        "note": "2 sets x 6-8/zijde. Onderrug neutraal, uitademen bij uitstrekken.",
+        "target": true
+      },
+      {
+        "id": "ma-chin-tuck",
+        "name": "Chin Tuck liggend",
+        "focus": "Nek",
+        "note": "2 sets x 8 herhalingen, 3 sec vasthouden. Geen pijn of tintelingen.",
+        "target": true
+      },
+      {
+        "id": "ma-wall-slide",
+        "name": "Wall Slide + Serratus reach",
+        "focus": "Trapezium/Schouderblad",
+        "note": "2 sets x 8. Schouders laag, nek lang.",
+        "target": true
+      }
+    ]
+  },
+  "dinsdag": {
+    "duration": "10-15 min",
+    "exercises": [
+      {
+        "id": "di-side-plank",
+        "name": "Side Plank (knieen)",
+        "focus": "Core",
+        "note": "2 sets x 20-30 sec/zijde. Heup recht, adem rustig.",
+        "target": true
+      },
+      {
+        "id": "di-isometric",
+        "name": "Nek-isometrie met hand",
+        "focus": "Nek",
+        "note": "Voor/zijwaarts, lichte druk. 2 sets x 5 herhalingen van 5 sec.",
+        "target": true
+      },
+      {
+        "id": "di-band-row",
+        "name": "Band Row (lichte weerstand)",
+        "focus": "Middenrug/Trapezium",
+        "note": "2 sets x 10-12. Schouderbladen zacht naar achter/beneden.",
+        "target": true
+      }
+    ]
+  },
+  "woensdag": {
+    "duration": "8-12 min (herstel)",
+    "exercises": [
+      {
+        "id": "wo-breath",
+        "name": "90/90 ademhaling",
+        "focus": "Herstel",
+        "note": "5 rustige ademcycli, focus op ribbeweging en ontspanning.",
+        "target": false
+      },
+      {
+        "id": "wo-openbook",
+        "name": "Open Book thoracaal (klein bereik)",
+        "focus": "Mobiliteit",
+        "note": "1-2 sets x 6/zijde. Nek neutraal, rotatie uit de bovenrug.",
+        "target": false
+      }
+    ]
+  },
+  "donderdag": {
+    "duration": "12-16 min",
+    "exercises": [
+      {
+        "id": "do-bird-dog",
+        "name": "Bird Dog (korte hefboom)",
+        "focus": "Core",
+        "note": "2 sets x 6/zijde, 2 sec hold. Bekken stabiel.",
+        "target": true
+      },
+      {
+        "id": "do-chin-tuck-wall",
+        "name": "Chin Tuck tegen muur",
+        "focus": "Nek",
+        "note": "2 sets x 8. Achterhoofd licht tegen muur, geen forceren.",
+        "target": true
+      },
+      {
+        "id": "do-lower-trap",
+        "name": "Prone Y (duimen omhoog)",
+        "focus": "Lage trapezius",
+        "note": "2 sets x 8, zeer lichte belasting of zonder gewicht.",
+        "target": true
+      }
+    ]
+  },
+  "vrijdag": {
+    "duration": "10-14 min",
+    "exercises": [
+      {
+        "id": "vr-pallof",
+        "name": "Pallof Press (licht)",
+        "focus": "Core anti-rotatie",
+        "note": "2 sets x 8/zijde. Romp stil, nek neutraal.",
+        "target": true
+      },
+      {
+        "id": "vr-scap-set",
+        "name": "Scapula setting + shrug release",
+        "focus": "Nek/Trapezium",
+        "note": "2 sets x 8 trage herhalingen. Span los, niet optrekken.",
+        "target": true
+      },
+      {
+        "id": "vr-face-pull",
+        "name": "Face Pull licht",
+        "focus": "Achterste schouder/Trapezium",
+        "note": "2 sets x 10. Ellebogen lager dan schouders, geen nekextensie.",
+        "target": true
+      }
+    ]
+  },
+  "zaterdag": {
+    "duration": "optioneel 6-10 min",
+    "exercises": [
+      {
+        "id": "za-walk",
+        "name": "Wandeling + nekontspanning",
+        "focus": "Herstel",
+        "note": "10-20 min wandelen, schouders ontspannen, rustige ademhaling.",
+        "target": false
+      }
+    ]
+  },
+  "zondag": {
+    "duration": "rustdag",
+    "exercises": [
+      {
+        "id": "zo-checkin",
+        "name": "Weekcheck houding op fiets",
+        "focus": "Planning",
+        "note": "Controleer zadel/stuurhoogte en nekcomfort voor komende week.",
+        "target": false
+      }
+    ]
+  }
+}
