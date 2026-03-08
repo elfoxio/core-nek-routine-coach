@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Core & Nek/Trapezium Routine Coach</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero card">
+        <p class="eyebrow">Voor wielrenners</p>
+        <h1>Core & Nek/Trapezium Routine Coach</h1>
+        <p>
+          Bouw een haalbare routine met sessies van 10-20 minuten. Focus op ACDF C5-C6-voorzichtige
+          oefeningen: neutrale nek, lage belasting, gecontroleerde uitvoering.
+        </p>
+        <p class="disclaimer">
+          Let op: dit is algemene informatie, geen medisch advies. Stop bij uitstralende pijn, tintelingen,
+          krachtverlies of duizeligheid en overleg met je arts/fysiotherapeut.
+        </p>
+      </section>
+
+      <section class="content-grid">
+        <section class="card planner">
+          <h2>Weekplanner</h2>
+          <div id="dayChips" class="chips"></div>
+
+          <div class="planner-header">
+            <h3 id="routineTitle">Routine</h3>
+            <p id="routineDuration" class="muted"></p>
+          </div>
+
+          <ul id="exerciseList" class="exercise-list"></ul>
+        </section>
+
+        <aside class="card progress">
+          <h2>Jouw voortgang</h2>
+          <p id="doneText">Afgerond deze week: 0 / 12</p>
+          <div class="bar-track" aria-hidden="true">
+            <div id="barFill" class="bar-fill"></div>
+          </div>
+          <p id="consistencyText" class="consistency">0% consistentie</p>
+
+          <h3>Praktische tips voor op de fiets</h3>
+          <ul class="tips">
+            <li>Begin met 3 trainingsdagen en bouw op naar 4 als dit 2 weken pijnvrij gaat.</li>
+            <li>Houd je nek neutraal: kin licht ingetrokken, geen langdurig omhoog kijken.</li>
+            <li>Wissel elke 10-15 min je handpositie om schouder- en nekspanning te spreiden.</li>
+            <li>Na ritten langer dan 90 min: 5 min rustige mobility en ademhalingsoefeningen.</li>
+          </ul>
+
+          <h3>Veiligheidskader (ACDF C5-C6)</h3>
+          <ul class="tips warning">
+            <li>Vermijd snelle of eindstand nekrotaties en diepe nekextensie onder belasting.</li>
+            <li>Werk pijnarm (max 2/10), langzaam tempo, stop direct bij zenuwsymptomen.</li>
+            <li>Kies kwaliteit boven volume: korte sets met perfecte controle.</li>
+          </ul>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
