@@ -6,8 +6,10 @@ Cloudflare Worker backend voor automatische Intervals sync + opslag in Supabase.
 
 - Scheduled sync elk uur (`cron` in `wrangler.toml`)
 - Endpoint voor manuele sync (`POST /api/client/sync`)
+- Endpoint voor historische backfill (`POST /api/client/backfill?days=365`)
 - Endpoint om laatste workout op te halen (`GET /api/public/latest`)
 - Schrijft laatste workout per athlete naar Supabase tabel `intervals_latest_workouts`
+- Schrijft historische workouts naar `intervals_workouts_history`
 
 ## 1. Supabase tabel aanmaken
 
@@ -53,6 +55,8 @@ Klik daarna `Bewaar sync instellingen` en `Sync nu`.
 - `GET /api/public/latest?athlete=<id>`
   - header: `x-client-token: <CLIENT_SYNC_TOKEN>`
 - `POST /api/client/sync?athlete=<id>`
+  - header: `x-client-token: <CLIENT_SYNC_TOKEN>`
+- `POST /api/client/backfill?athlete=<id>&days=365`
   - header: `x-client-token: <CLIENT_SYNC_TOKEN>`
 - `POST /api/admin/sync?athlete=<id>`
   - header: `x-admin-key: <ADMIN_SYNC_KEY>`

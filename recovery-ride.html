@@ -155,6 +155,11 @@
               <div class="actions">
                 <button id="saveSyncSettingsBtn" type="button">Bewaar sync instellingen</button>
                 <button id="syncNowBtn" type="button" class="ghost">Sync nu</button>
+                <label>
+                  Historiek (dagen)
+                  <input id="backfillDaysInput" type="number" min="7" max="1825" step="1" value="365" />
+                </label>
+                <button id="backfillBtn" type="button" class="ghost">Sync historiek</button>
                 <button id="disableSyncBtn" type="button" class="ghost">Disable auto sync</button>
               </div>
               <p id="syncStatus" class="muted small">Auto sync staat uit.</p>

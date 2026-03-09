@@ -47,6 +47,8 @@ const syncClientTokenInput = document.getElementById("syncClientTokenInput");
 const syncAthleteIdInput = document.getElementById("syncAthleteIdInput");
 const saveSyncSettingsBtn = document.getElementById("saveSyncSettingsBtn");
 const syncNowBtn = document.getElementById("syncNowBtn");
+const backfillDaysInput = document.getElementById("backfillDaysInput");
+const backfillBtn = document.getElementById("backfillBtn");
 const disableSyncBtn = document.getElementById("disableSyncBtn");
 const syncStatus = document.getElementById("syncStatus");
 
@@ -99,6 +101,7 @@ intervalsCsvInput.addEventListener("change", onIntervalsCsvUpload);
 clearIntervalsBtn.addEventListener("click", onClearIntervalsAnalysis);
 saveSyncSettingsBtn.addEventListener("click", onSaveSyncSettings);
 syncNowBtn.addEventListener("click", onSyncNowClick);
+backfillBtn.addEventListener("click", onBackfillClick);
 disableSyncBtn.addEventListener("click", onDisableSyncClick);
 document.querySelectorAll(".preset-btn[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => onPresetClick(btn.dataset.preset));
@@ -822,6 +825,39 @@ function onSyncNowClick() {
     return;
   }
   syncFromBackend({ triggerRemoteSync: true });
+}
+
+function onBackfillClick() {
+  if (!state.syncConfig?.enabled) {
+    syncStatus.textContent = "Bewaar eerst sync instellingen.";
+    return;
+  }
+  const days = clampInt(toNum(backfillDaysInput.value) || 365, 7, 1825);
+  backfillFromBackend(days);
+}
+
+async function backfillFromBackend(days) {
+  const cfg = state.syncConfig;
+  syncStatus.textContent = `Historiek sync bezig (${days} dagen)...`;
+  try {
+    const url = `${cfg.baseUrl}/api/client/backfill?athlete=${encodeURIComponent(cfg.athleteId)}&days=${encodeURIComponent(String(days))}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "x-client-token": cfg.clientToken,
+      },
+    });
+    if (!response.ok) {
+      const errBody = await readSafeText(response);
+      throw new Error(`Backfill fout (${response.status}): ${truncate(errBody, 180)}`);
+    }
+    const payload = await response.json();
+    syncStatus.textContent = `Historiek klaar: ${payload.importedCount || 0} workouts geïmporteerd (${payload.days || days} dagen).`;
+    await syncFromBackend({ triggerRemoteSync: false });
+  } catch (err) {
+    console.error(err);
+    syncStatus.textContent = `Historiek sync mislukt: ${err.message || "onbekende fout"}`;
+  }
 }
 
 async function syncFromBackend({ triggerRemoteSync }) {

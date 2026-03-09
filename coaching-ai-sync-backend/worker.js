@@ -20,6 +20,14 @@ export default {
         return cors(jsonResponse(result));
       }
 
+      if (path === "/api/client/backfill" && request.method === "POST") {
+        requireClientToken(request, env);
+        const athlete = getAthleteId(url, env);
+        const days = getBackfillDays(url);
+        const result = await runBackfill(env, athlete, days);
+        return cors(jsonResponse(result));
+      }
+
       if (path === "/api/admin/sync" && request.method === "POST") {
         requireAdminToken(request, env);
         const athlete = getAthleteId(url, env);
@@ -62,7 +70,64 @@ async function runSync(env, athleteId) {
   };
 }
 
+async function runBackfill(env, athleteId, days) {
+  const rawItems = await fetchIntervalsRange(env, days);
+  if (!Array.isArray(rawItems) || !rawItems.length) {
+    throw httpError(404, "No historical workouts found in Intervals response");
+  }
+
+  const workouts = rawItems
+    .map((raw) => mapIntervalsWorkout(raw))
+    .filter((w) => w && w.workout_id);
+
+  if (!workouts.length) {
+    throw httpError(404, "Historical payload had no mappable workouts");
+  }
+
+  await upsertWorkoutHistory(
+    env,
+    workouts.map((w) => ({
+      athlete_id: athleteId,
+      workout_id: w.workout_id,
+      workout_date: w.start_date || new Date().toISOString(),
+      source_file: "intervals-api-backfill",
+      workout: w,
+      synced_at: new Date().toISOString(),
+    }))
+  );
+
+  const latest = workouts
+    .slice()
+    .sort((a, b) => String(b.start_date || "").localeCompare(String(a.start_date || "")))[0];
+  if (latest) {
+    await upsertLatestWorkout(env, {
+      athlete_id: athleteId,
+      synced_at: new Date().toISOString(),
+      source_file: "intervals-api-backfill",
+      workout: latest,
+    });
+  }
+
+  return {
+    ok: true,
+    importedCount: workouts.length,
+    days,
+    latestWorkoutDate: latest?.start_date || null,
+  };
+}
+
 async function fetchIntervalsLatest(env) {
+  const items = await fetchIntervalsList(env, { limit: 1 });
+  return items[0] || null;
+}
+
+async function fetchIntervalsRange(env, days) {
+  const oldest = isoDateDaysAgo(days);
+  const items = await fetchIntervalsList(env, { limit: 1000, oldest });
+  return items;
+}
+
+async function fetchIntervalsList(env, opts = {}) {
   const endpoint = env.INTERVALS_API_URL;
   if (!endpoint) throw httpError(500, "INTERVALS_API_URL missing");
 
@@ -85,24 +150,27 @@ async function fetchIntervalsLatest(env) {
     throw httpError(500, `Unsupported INTERVALS_AUTH_MODE: ${authMode}`);
   }
 
-  const resp = await fetch(endpoint, { headers });
+  const url = withIntervalsQuery(endpoint, opts);
+  const resp = await fetch(url, { headers });
   if (!resp.ok) {
     const detail = await resp.text();
     throw httpError(502, `Intervals API error ${resp.status}: ${detail.slice(0, 300)}`);
   }
 
   const data = await resp.json();
-  if (Array.isArray(data)) return data[0] || null;
-  if (Array.isArray(data?.results)) return data.results[0] || null;
-  if (Array.isArray(data?.items)) return data.items[0] || null;
-  if (Array.isArray(data?.activities)) return data.activities[0] || null;
-  if (data?.activity) return data.activity;
-  return data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.activities)) return data.activities;
+  if (data?.activity) return [data.activity];
+  if (data && typeof data === "object") return [data];
+  return [];
 }
 
 function mapIntervalsWorkout(raw) {
   if (!raw || typeof raw !== "object") return null;
 
+  const rawId = pick(raw, ["id", "activity_id", "activityId", "external_id"]);
   const name = pick(raw, ["name", "activity_name", "title", "workout"]);
   const startDate = pick(raw, ["start_date", "startDate", "date", "start_time", "start"]);
   const durationMin = toMinutes(pick(raw, ["duration_min", "duration", "moving_time", "elapsed_time", "time"]));
@@ -114,8 +182,10 @@ function mapIntervalsWorkout(raw) {
   const maxHr = toNumber(pick(raw, ["max_hr", "hr_max", "heartrate_max"]));
   const tss = toNumber(pick(raw, ["tss", "icu_training_load", "training_stress", "load"]));
   const ifValue = toNumber(pick(raw, ["if_value", "if", "intensity_factor"]));
+  const workoutId = rawId ? String(rawId) : makeWorkoutId(name, startDate);
 
   return {
+    workout_id: workoutId,
     name: name || "Intervals workout",
     start_date: startDate || new Date().toISOString(),
     duration_min: durationMin,
@@ -143,6 +213,22 @@ async function upsertLatestWorkout(env, row) {
   if (!resp.ok) {
     const detail = await resp.text();
     throw httpError(502, `Supabase upsert failed: ${detail || resp.status}`);
+  }
+}
+
+async function upsertWorkoutHistory(env, rows) {
+  const url = `${env.SUPABASE_URL}/rest/v1/intervals_workouts_history?on_conflict=athlete_id,workout_id`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: supabaseHeaders(env, {
+      Prefer: "resolution=merge-duplicates,return=minimal",
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(rows),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw httpError(502, `Supabase history upsert failed: ${detail || resp.status}`);
   }
 }
 
@@ -207,6 +293,12 @@ function getAthleteId(url, env) {
   return athlete;
 }
 
+function getBackfillDays(url) {
+  const raw = Number(url.searchParams.get("days") || "365");
+  if (!Number.isFinite(raw)) return 365;
+  return Math.max(7, Math.min(1825, Math.round(raw)));
+}
+
 function toNumber(value) {
   if (value == null || value === "") return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -253,6 +345,29 @@ function pick(obj, keys) {
     if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] != null && obj[k] !== "") return obj[k];
   }
   return null;
+}
+
+function makeWorkoutId(name, startDate) {
+  const base = `${name || "workout"}|${startDate || ""}`.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < base.length; i += 1) {
+    hash = (hash * 31 + base.charCodeAt(i)) >>> 0;
+  }
+  return `w-${hash.toString(16)}`;
+}
+
+function isoDateDaysAgo(days) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+function withIntervalsQuery(endpoint, opts) {
+  const url = new URL(endpoint);
+  if (opts.limit) url.searchParams.set("limit", String(opts.limit));
+  if (opts.oldest) url.searchParams.set("oldest", String(opts.oldest));
+  if (opts.newest) url.searchParams.set("newest", String(opts.newest));
+  return url.toString();
 }
 
 function cors(response) {
