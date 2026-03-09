@@ -282,6 +282,19 @@ async function onScreenshotUpload(event) {
       rawText = [rawText, "\n\n--- OCR fallback ---\n", fallbackText].join("");
     }
 
+    // Final fallback: focus on the lower dashboard zone where Weight/HRV/RHR tiles usually are.
+    if (countExtracted(extracted) < 3) {
+      const lowerRegion = await preprocessImage(file, { cropBottomRatio: 0.42, scale: 2.2, highContrast: true });
+      const focused = await runOcr(lowerRegion, "OCR pass 3/3", {
+        tessedit_pageseg_mode: "6",
+        tessedit_char_whitelist: "0123456789.%kgbpmhmsKGHBPMMSabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:-/ ",
+      });
+      const focusedText = focused?.data?.text || "";
+      const focusedExtracted = extractGarminMetrics(focusedText);
+      extracted = mergeExtracted(extracted, focusedExtracted);
+      rawText = [rawText, "\n\n--- OCR focused lower region ---\n", focusedText].join("");
+    }
+
     ocrRaw.textContent = rawText;
     applyExtractedValues(extracted);
 
@@ -307,8 +320,9 @@ async function onScreenshotUpload(event) {
   }
 }
 
-async function runOcr(source, label) {
+async function runOcr(source, label, extraOptions = {}) {
   return window.Tesseract.recognize(source, "eng", {
+    ...extraOptions,
     logger: (msg) => {
       if (msg.status === "recognizing text") {
         ocrStatus.textContent = `${label}... ${Math.round((msg.progress || 0) * 100)}%`;
@@ -450,30 +464,39 @@ function applyExtractedValues(extracted) {
   if (extracted.fat != null) fields.fat.value = extracted.fat;
 }
 
-async function preprocessImage(file) {
+async function preprocessImage(file, options = {}) {
   try {
     const img = await fileToImage(file);
     const canvas = document.createElement("canvas");
+    const cropBottomRatio = Number.isFinite(options.cropBottomRatio) ? options.cropBottomRatio : 0;
+    const safeRatio = Math.max(0, Math.min(0.9, cropBottomRatio));
+    const cropY = Math.round(img.height * (1 - safeRatio));
+    const srcY = safeRatio > 0 ? cropY : 0;
+    const srcH = safeRatio > 0 ? Math.max(1, img.height - cropY) : img.height;
 
-    const scale = Math.max(1.6, 1800 / Math.max(1, img.width));
+    const targetScale = Number.isFinite(options.scale) ? options.scale : Math.max(1.6, 1800 / Math.max(1, img.width));
+    const scale = Math.max(1, targetScale);
     canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
+    canvas.height = Math.round(srcH * scale);
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, srcY, img.width, srcH, 0, 0, canvas.width, canvas.height);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
+    const highContrast = options.highContrast !== false;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-      const boosted = luma > 150 ? 255 : luma < 90 ? 0 : Math.round(luma * 1.08);
-      data[i] = boosted;
-      data[i + 1] = boosted;
-      data[i + 2] = boosted;
+    if (highContrast) {
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        const boosted = luma > 152 ? 255 : luma < 88 ? 0 : Math.round(luma * 1.1);
+        data[i] = boosted;
+        data[i + 1] = boosted;
+        data[i + 2] = boosted;
+      }
     }
 
     ctx.putImageData(imageData, 0, 0);
