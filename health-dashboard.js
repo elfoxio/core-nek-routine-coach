@@ -4,8 +4,6 @@ const MAX_BROWSER_PARSE_BYTES = 200 * 1024 * 1024;
 const jsonInput = document.getElementById("jsonInput");
 const loadSavedBtn = document.getElementById("loadSavedBtn");
 const clearSavedBtn = document.getElementById("clearSavedBtn");
-const copyWizardCmdBtn = document.getElementById("copyWizardCmdBtn");
-const wizardCmd = document.getElementById("wizardCmd");
 const statusEl = document.getElementById("status");
 const kpisEl = document.getElementById("kpis");
 const trendTableEl = document.getElementById("trendTable");
@@ -19,9 +17,6 @@ const sleepChart = document.getElementById("sleepChart");
 jsonInput.addEventListener("change", onFileSelected);
 loadSavedBtn.addEventListener("click", onLoadSaved);
 clearSavedBtn.addEventListener("click", onClearSaved);
-if (copyWizardCmdBtn && wizardCmd) {
-  copyWizardCmdBtn.addEventListener("click", onCopyWizardCommand);
-}
 
 function setStatus(msg) {
   statusEl.textContent = msg;
@@ -111,17 +106,6 @@ function onLoadSaved() {
 function onClearSaved() {
   localStorage.removeItem(STORAGE_KEY);
   setStatus("Opgeslagen upload gewist.");
-}
-
-async function onCopyWizardCommand() {
-  if (!wizardCmd) return;
-  const cmd = wizardCmd.textContent || "";
-  try {
-    await navigator.clipboard.writeText(cmd);
-    setStatus("Commando gekopieerd. Plak nu in Terminal en run.");
-  } catch {
-    setStatus("Kopieren via browser geblokkeerd. Selecteer en kopieer het commando handmatig.");
-  }
 }
 
 function processData(root) {

@@ -47,39 +47,6 @@ body {
   margin-top: 12px;
 }
 
-.wizard {
-  border: 1px solid var(--line);
-  background: #f7f9fd;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-
-.wizard h3 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-}
-
-.wizard ol {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.wizard li {
-  margin-bottom: 8px;
-  color: var(--text);
-}
-
-.wizard code {
-  display: block;
-  margin-top: 6px;
-  background: #e9eef8;
-  border: 1px solid #cfdaef;
-  border-radius: 8px;
-  padding: 8px;
-  overflow-wrap: anywhere;
-}
-
 .upload-row {
   display: flex;
   gap: 10px;
@@ -103,12 +70,6 @@ button {
 button.ghost {
   background: #fff;
   color: var(--accent);
-}
-
-button.small {
-  margin-top: 6px;
-  padding: 6px 10px;
-  font-size: 0.9rem;
 }
 
 .hint {
