@@ -361,6 +361,8 @@ function onReviewCheckinClick() {
 
 function estimateTrainingLoadFromIntervals(analysis, history) {
   if (Number.isFinite(analysis?.tss) && analysis.tss > 0) return analysis.tss;
+  if (Number.isFinite(analysis?.atlLoad) && analysis.atlLoad > 0) return analysis.atlLoad;
+  if (Number.isFinite(analysis?.ctlLoad) && analysis.ctlLoad > 0) return analysis.ctlLoad;
 
   const durationMin = toNum(analysis?.durationMin);
   const ifValue = toNum(analysis?.ifValue);
@@ -901,6 +903,8 @@ function analyzeIntervalsWorkoutObject(workout, sourceFile) {
   const rhrBpm = parseSmartNumber(workout.rhr_bpm);
   const weightKg = parseSmartNumber(workout.weight_kg);
   const bodyFatPct = parseSmartNumber(workout.body_fat_pct);
+  const atlLoad = parseSmartNumber(workout.atl_load);
+  const ctlLoad = parseSmartNumber(workout.ctl_load);
   const activityName = workout.name || workout.activity_name || "Intervals workout";
   const activityDate = formatActivityDate(workout.start_date || workout.date || workout.synced_at);
 
@@ -947,6 +951,8 @@ function analyzeIntervalsWorkoutObject(workout, sourceFile) {
     rhrBpm,
     weightKg,
     bodyFatPct,
+    atlLoad,
+    ctlLoad,
     loadScore,
     loadLabel,
     recoveryWindow,

@@ -139,8 +139,9 @@ async function fetchIntervalsRange(env, days) {
 async function fetchIntervalsWellnessLatest(env) {
   const endpoint = env.INTERVALS_WELLNESS_API_URL;
   if (!endpoint) return null;
-  const items = await fetchIntervalsListFromEndpoint(env, endpoint, { limit: 1 });
-  return items[0] || null;
+  const items = await fetchIntervalsListFromEndpoint(env, endpoint, { limit: 7 });
+  if (!Array.isArray(items) || !items.length) return null;
+  return pickLatestWellnessWithData(items);
 }
 
 async function fetchIntervalsList(env, opts = {}) {
@@ -191,7 +192,7 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
 
   const rawId = pick(raw, ["id", "activity_id", "activityId", "external_id"]);
   const name = pick(raw, ["name", "activity_name", "title", "workout"]);
-  const startDate = pick(raw, ["start_date", "startDate", "date", "start_time", "start"]);
+  const startDate = pick(raw, ["start_date", "start_date_local", "startDate", "date", "start_time", "start"]);
   const durationMin = toMinutes(pick(raw, ["duration_min", "duration", "moving_time", "elapsed_time", "time"]));
   const distanceKm = toKilometers(pick(raw, ["distance_km", "distance", "distanceKm"]));
   const elevationM = toNumber(pick(raw, ["elevation_m", "elevation", "ascent", "climb"]));
@@ -202,7 +203,7 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
   const tss = toNumber(pick(raw, ["tss", "icu_training_load", "training_stress", "load"]));
   const ifValue = toNumber(pick(raw, ["if_value", "if", "intensity_factor"]));
   let sleepHours = toHours(
-    pick(raw, ["sleep_hours", "sleep", "sleep_duration_hours", "sleepDurationHours"]) ??
+    pick(raw, ["sleep_hours", "sleep", "sleepSecs", "sleep_duration_hours", "sleepDurationHours"]) ??
       pickNested(raw, [["wellness", "sleep_hours"], ["wellness", "sleep"], ["sleep", "hours"], ["metrics", "sleep_hours"]])
   );
   let hrvMs = toNumber(
@@ -210,7 +211,7 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
       pickNested(raw, [["wellness", "hrv"], ["wellness", "hrv_ms"], ["metrics", "hrv_ms"]])
   );
   let rhrBpm = toNumber(
-    pick(raw, ["rhr_bpm", "resting_hr", "resting_heart_rate", "restingHR"]) ??
+    pick(raw, ["rhr_bpm", "resting_hr", "restingHR", "resting_heart_rate"]) ??
       pickNested(raw, [["wellness", "resting_hr"], ["wellness", "rhr"], ["metrics", "resting_hr"]])
   );
   let weightKg = toNumber(
@@ -218,16 +219,18 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
       pickNested(raw, [["wellness", "weight_kg"], ["wellness", "weight"], ["metrics", "weight_kg"]])
   );
   let bodyFatPct = toPercent(
-    pick(raw, ["body_fat_pct", "body_fat", "fat_pct", "bodyfat"]) ??
+    pick(raw, ["body_fat_pct", "body_fat", "bodyFat", "fat_pct", "bodyfat"]) ??
       pickNested(raw, [["wellness", "body_fat_pct"], ["wellness", "body_fat"], ["metrics", "body_fat_pct"]])
   );
+  const ctlLoad = toNumber(pick(raw, ["ctlLoad", "ctl_load", "ctl"]));
+  const atlLoad = toNumber(pick(raw, ["atlLoad", "atl_load", "atl"]));
 
   if (wellnessRaw && typeof wellnessRaw === "object") {
-    sleepHours = sleepHours ?? toHours(pick(wellnessRaw, ["sleep", "sleep_hours", "sleepDurationHours", "sleep_duration_hours"]));
+    sleepHours = sleepHours ?? toHours(pick(wellnessRaw, ["sleep", "sleepSecs", "sleep_hours", "sleepDurationHours", "sleep_duration_hours"]));
     hrvMs = hrvMs ?? toNumber(pick(wellnessRaw, ["hrv", "hrv_ms", "hrv_avg", "rmssd"]));
-    rhrBpm = rhrBpm ?? toNumber(pick(wellnessRaw, ["resting_hr", "rhr", "resting_heart_rate"]));
+    rhrBpm = rhrBpm ?? toNumber(pick(wellnessRaw, ["restingHR", "resting_hr", "rhr", "resting_heart_rate"]));
     weightKg = weightKg ?? toNumber(pick(wellnessRaw, ["weight", "weight_kg", "body_weight"]));
-    bodyFatPct = bodyFatPct ?? toPercent(pick(wellnessRaw, ["body_fat", "body_fat_pct", "fat_pct"]));
+    bodyFatPct = bodyFatPct ?? toPercent(pick(wellnessRaw, ["bodyFat", "body_fat", "body_fat_pct", "fat_pct"]));
 
     // Broad fallback for custom-labeled wellness keys (e.g. "HRV (rMSSD)", "Sleep", "Resting HR").
     const flat = flattenObject(wellnessRaw);
@@ -257,6 +260,8 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
     rhr_bpm: rhrBpm,
     weight_kg: weightKg,
     body_fat_pct: bodyFatPct,
+    ctl_load: ctlLoad,
+    atl_load: atlLoad,
   };
 }
 
@@ -494,6 +499,19 @@ function withIntervalsQuery(endpoint, opts) {
   if (opts.oldest) url.searchParams.set("oldest", String(opts.oldest));
   if (opts.newest) url.searchParams.set("newest", String(opts.newest));
   return url.toString();
+}
+
+function pickLatestWellnessWithData(items) {
+  const sorted = items
+    .slice()
+    .sort((a, b) => String(b?.id || b?.updated || "").localeCompare(String(a?.id || a?.updated || "")));
+  const hasMetrics = (row) =>
+    Number.isFinite(toHours(row?.sleepSecs ?? row?.sleep ?? row?.sleep_hours)) ||
+    Number.isFinite(toNumber(row?.hrv ?? row?.hrv_ms)) ||
+    Number.isFinite(toNumber(row?.restingHR ?? row?.resting_hr)) ||
+    Number.isFinite(toNumber(row?.weight ?? row?.weight_kg)) ||
+    Number.isFinite(toPercent(row?.bodyFat ?? row?.body_fat));
+  return sorted.find(hasMetrics) || sorted[0] || null;
 }
 
 function flattenObject(input, prefix = "", out = []) {
