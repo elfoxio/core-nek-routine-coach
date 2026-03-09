@@ -1,0 +1,91 @@
+:root {
+  --bg: #eef3f9;
+  --text: #172033;
+  --muted: #5f697c;
+  --card: #ffffff;
+  --line: #d7dfeb;
+  --accent: #1f4b99;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Avenir Next", sans-serif;
+  background: linear-gradient(140deg, #f4f7fc, #e7eef9);
+  color: var(--text);
+}
+
+.home-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+  color: #2f6f5e;
+  font-weight: 700;
+}
+
+.hero p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.cards {
+  margin-top: 20px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.card {
+  text-decoration: none;
+  color: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.07);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.11);
+}
+
+.card h2 {
+  margin: 0;
+}
+
+.card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 860px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}

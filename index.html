@@ -3,63 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Core & Nek/Trapezium Routine Coach</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>Gezondheid & Routine Hub</title>
+    <link rel="stylesheet" href="home.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="hero card">
-        <p class="eyebrow">Voor wielrenners</p>
-        <h1>Core & Nek/Trapezium Routine Coach</h1>
-        <p>
-          Bouw een haalbare routine met sessies van 10-20 minuten. Focus op ACDF C5-C6-voorzichtige
-          oefeningen: neutrale nek, lage belasting, gecontroleerde uitvoering.
-        </p>
-        <p class="disclaimer">
-          Let op: dit is algemene informatie, geen medisch advies. Stop bij uitstralende pijn, tintelingen,
-          krachtverlies of duizeligheid en overleg met je arts/fysiotherapeut.
-        </p>
+    <main class="home-wrap">
+      <section class="hero">
+        <p class="eyebrow">elfoxio health tools</p>
+        <h1>Gezondheid & Routine Hub</h1>
+        <p>Kies waar je naartoe wilt: je dagelijkse routine of je health data dashboard.</p>
       </section>
 
-      <section class="content-grid">
-        <section class="card planner">
-          <h2>Weekplanner</h2>
-          <div id="dayChips" class="chips"></div>
+      <section class="cards">
+        <a class="card" href="routine.html">
+          <h2>Core & Nek Routine</h2>
+          <p>Weekplanner met ACDF C5-C6 veilige oefeningen, checklists en voortgang.</p>
+          <span class="cta">Open routine</span>
+        </a>
 
-          <div class="planner-header">
-            <h3 id="routineTitle">Routine</h3>
-            <p id="routineDuration" class="muted"></p>
-          </div>
-
-          <ul id="exerciseList" class="exercise-list"></ul>
-        </section>
-
-        <aside class="card progress">
-          <h2>Jouw voortgang</h2>
-          <p id="doneText">Afgerond deze week: 0 / 12</p>
-          <div class="bar-track" aria-hidden="true">
-            <div id="barFill" class="bar-fill"></div>
-          </div>
-          <p id="consistencyText" class="consistency">0% consistentie</p>
-
-          <h3>Praktische tips voor op de fiets</h3>
-          <ul class="tips">
-            <li>Begin met 3 trainingsdagen en bouw op naar 4 als dit 2 weken pijnvrij gaat.</li>
-            <li>Houd je nek neutraal: kin licht ingetrokken, geen langdurig omhoog kijken.</li>
-            <li>Wissel elke 10-15 min je handpositie om schouder- en nekspanning te spreiden.</li>
-            <li>Na ritten langer dan 90 min: 5 min rustige mobility en ademhalingsoefeningen.</li>
-          </ul>
-
-          <h3>Veiligheidskader (ACDF C5-C6)</h3>
-          <ul class="tips warning">
-            <li>Vermijd snelle of eindstand nekrotaties en diepe nekextensie onder belasting.</li>
-            <li>Werk pijnarm (max 2/10), langzaam tempo, stop direct bij zenuwsymptomen.</li>
-            <li>Kies kwaliteit boven volume: korte sets met perfecte controle.</li>
-          </ul>
-        </aside>
+        <a class="card" href="health-dashboard.html">
+          <h2>Health Data Dashboard</h2>
+          <p>Upload je HealthAutoExport JSON en krijg trends, grafieken en advies.</p>
+          <span class="cta">Open dashboard</span>
+        </a>
       </section>
     </main>
-
-    <script src="app.js"></script>
   </body>
 </html>

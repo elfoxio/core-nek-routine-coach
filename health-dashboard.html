@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Health Progress Dashboard</title>
+    <link rel="stylesheet" href="health-dashboard.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <p><a href="index.html">← Terug naar home</a></p>
+      <section class="hero card">
+        <h1>Health Progress Dashboard</h1>
+        <p>Upload je `HealthAutoExport...json` om je trends, rapport en advies automatisch te updaten.</p>
+      </section>
+
+      <section class="card uploader">
+        <div class="upload-row">
+          <input id="jsonInput" type="file" accept="application/json,.json" />
+          <button id="loadSavedBtn" type="button">Laad laatste upload</button>
+          <button id="clearSavedBtn" type="button" class="ghost">Wis opgeslagen data</button>
+        </div>
+        <p class="hint">
+          Tip: bij zeer grote exports kan verwerken 10-30 seconden duren. Je browser slaat de laatste upload lokaal op.
+        </p>
+        <p id="status" class="status">Nog geen bestand geladen.</p>
+      </section>
+
+      <section class="grid">
+        <section class="card">
+          <h2>Kerncijfers</h2>
+          <div id="kpis" class="kpis"></div>
+        </section>
+
+        <section class="card">
+          <h2>Trends (eerste 30 vs laatste 30 dagen)</h2>
+          <div id="trendTable"></div>
+        </section>
+      </section>
+
+      <section class="card">
+        <h2>Persoonlijk advies</h2>
+        <ul id="adviceList" class="advice"></ul>
+      </section>
+
+      <section class="grid charts">
+        <section class="card">
+          <h2>Stappen per maand (gem.)</h2>
+          <div id="stepsChart" class="chart"></div>
+        </section>
+        <section class="card">
+          <h2>Slaap per maand (gem. uur)</h2>
+          <div id="sleepChart" class="chart"></div>
+        </section>
+      </section>
+
+      <section class="card">
+        <h2>Maandsamenvatting</h2>
+        <div class="table-wrap">
+          <table id="monthlyTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="health-dashboard.js"></script>
+  </body>
+</html>

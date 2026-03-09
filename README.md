@@ -43,6 +43,19 @@ Regels:
 
 Na aanpassen van `data/routine.json`: commit + push naar `main`; GitHub Pages deployt automatisch.
 
+## Health data dashboard (JSON upload + advies)
+
+Open:
+
+- `health-dashboard.html`
+
+Wat je kan doen:
+
+- Upload je `HealthAutoExport...json`
+- Dashboard berekent automatisch trends (stappen, slaap, HR, HRV, gewicht)
+- Je krijgt concrete verbeteradviezen voor training, herstel en leefstijl
+- Laatste upload wordt lokaal bewaard in je browser (knop: `Laad laatste upload`)
+
 ## Publiceren via GitHub Pages
 
 Deze repo bevat al een workflow (`.github/workflows/deploy-pages.yml`) die automatisch publiceert naar GitHub Pages.
