@@ -37,6 +37,11 @@ const workoutPreview = document.getElementById("workoutPreview");
 const workoutStatus = document.getElementById("workoutStatus");
 const autoPresetBtn = document.getElementById("autoPresetBtn");
 const autoPresetModeInput = document.getElementById("autoPresetModeInput");
+const intervalsCsvInput = document.getElementById("intervalsCsvInput");
+const clearIntervalsBtn = document.getElementById("clearIntervalsBtn");
+const intervalsStatus = document.getElementById("intervalsStatus");
+const intervalsSummary = document.getElementById("intervalsSummary");
+const intervalsTips = document.getElementById("intervalsTips");
 
 let lastWorkoutBuild = null;
 
@@ -83,6 +88,8 @@ exportPdfBtn.addEventListener("click", printSummary);
 buildWorkoutBtn.addEventListener("click", onBuildWorkout);
 downloadWorkoutBtn.addEventListener("click", onDownloadWorkout);
 autoPresetBtn.addEventListener("click", onAutoPresetClick);
+intervalsCsvInput.addEventListener("change", onIntervalsCsvUpload);
+clearIntervalsBtn.addEventListener("click", onClearIntervalsAnalysis);
 document.querySelectorAll(".preset-btn[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => onPresetClick(btn.dataset.preset));
 });
@@ -101,9 +108,10 @@ function loadState() {
     return {
       user: saved.user || null,
       entries: saved.entries || {},
+      intervalsAnalysis: saved.intervalsAnalysis || null,
     };
   } catch {
-    return { user: null, entries: {} };
+    return { user: null, entries: {}, intervalsAnalysis: null };
   }
 }
 
@@ -126,6 +134,7 @@ function init() {
 
   renderDashboard();
   renderCoachAdvice();
+  renderIntervalsAnalysis();
 }
 
 function showLogin() {
@@ -563,6 +572,9 @@ function renderCoachAdvice() {
   if (num(s.gi) >= 6) {
     tips.push("Darmklachten zijn merkbaar: houd training kort en kies licht verteerbare voeding.");
   }
+  if (state.intervalsAnalysis?.recoveryWindow) {
+    tips.push(`Laatste Intervals workout: aanbevolen herstelvenster ${state.intervalsAnalysis.recoveryWindow}.`);
+  }
 
   coachSummary.innerHTML = `
     <p><strong>Status:</strong> ${status.label}</p>
@@ -584,6 +596,385 @@ function renderCoachAdvice() {
     workoutStructureInput.value = "z2";
     workoutDurationInput.value = 75;
   }
+}
+
+async function onIntervalsCsvUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  intervalsStatus.textContent = `Bezig met analyseren: ${file.name}...`;
+
+  try {
+    const text = await file.text();
+    const analysis = analyzeIntervalsCsv(text, file.name);
+    state.intervalsAnalysis = analysis;
+    saveState();
+    renderIntervalsAnalysis();
+    renderCoachAdvice();
+    intervalsStatus.textContent = `Analyse klaar voor ${file.name}.`;
+  } catch (err) {
+    console.error(err);
+    intervalsStatus.textContent = "Kon CSV niet analyseren. Controleer formaat/kolommen.";
+  }
+}
+
+function onClearIntervalsAnalysis() {
+  state.intervalsAnalysis = null;
+  saveState();
+  renderIntervalsAnalysis();
+  renderCoachAdvice();
+  intervalsStatus.textContent = "Intervals analyse gewist.";
+}
+
+function renderIntervalsAnalysis() {
+  const a = state.intervalsAnalysis;
+  if (!a) {
+    intervalsSummary.innerHTML = "<p>Upload een Intervals CSV om post-workout analyse en recovery-advies te krijgen.</p>";
+    intervalsTips.innerHTML = "<li>Nog geen tips beschikbaar.</li>";
+    return;
+  }
+
+  intervalsSummary.innerHTML = `
+    <p><strong>Workout:</strong> ${escapeHtml(a.activityName || "Onbekend")}</p>
+    <p><strong>Datum:</strong> ${a.activityDate || "-"}</p>
+    <p><strong>Bronbestand:</strong> ${escapeHtml(a.sourceFile || "-")}</p>
+    <p><strong>Belasting:</strong> ${a.loadLabel} (score ${round(a.loadScore, 1)})</p>
+    <p><strong>Hersteladvies:</strong> ${a.recoveryWindow}</p>
+    <p><strong>Kerncijfers:</strong> duur ${a.durationMin ? `${round(a.durationMin, 1)} min` : "-"}, TSS ${valueOrDash(a.tss)}, IF ${valueOrDash(a.ifValue)}, NP ${valueOrDash(a.np)} W, avg HR ${valueOrDash(a.avgHr)} bpm</p>
+  `;
+
+  intervalsTips.innerHTML = a.tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
+}
+
+function analyzeIntervalsCsv(text, filename) {
+  const rows = parseCsvRows(text);
+  if (!rows.length) throw new Error("empty csv");
+  const enriched = rows
+    .map((row) => normalizeCsvRow(row))
+    .filter((row) => Object.keys(row.normalized).length > 0);
+  if (!enriched.length) throw new Error("no rows");
+
+  const picked = pickBestWorkoutRow(enriched);
+  const n = picked.normalized;
+
+  const durationRaw = pickField(n, ["duration", "moving time", "elapsed", "time"]);
+  const durationMin = parseDurationToMinutes(durationRaw);
+  const distanceKm = parseDistanceKm(n);
+  const elevationM = pickNumber(n, ["elevation", "elev gain", "elev", "ascent", "climb"]);
+  const avgPower = pickNumber(n, ["average power", "avg power", "power avg"]);
+  const np = pickNumber(n, ["normalized power", "np"]);
+  const avgHr = pickNumber(n, ["average heart rate", "avg hr", "heartrate average", "avg heartrate"]);
+  const maxHr = pickNumber(n, ["max heart rate", "max hr", "maximum heartrate", "max heartrate"]);
+  const tss = pickNumber(n, ["tss", "training stress", "load"]);
+  const ifDirect = pickNumber(n, ["intensity factor"]);
+  const ftp = pickNumber(n, ["ftp"]);
+  const ifValue = Number.isFinite(ifDirect) ? ifDirect : Number.isFinite(np) && Number.isFinite(ftp) && ftp > 0 ? np / ftp : null;
+  const activityName = pickField(n, ["name", "activity", "workout", "title"]) || "Intervals workout";
+  const activityDate = formatActivityDate(pickField(n, ["start", "date", "day", "timestamp"]));
+
+  const loadScore = computeWorkoutLoadScore({ durationMin, tss, ifValue, maxHr, elevationM });
+  const loadLabel = loadScore <= 3 ? "Licht" : loadScore <= 6 ? "Matig" : loadScore <= 9 ? "Hoog" : "Zeer hoog";
+  const recoveryWindow =
+    loadScore <= 3
+      ? "12-24u: herstelrit of rustige duur mogelijk"
+      : loadScore <= 6
+        ? "24-36u: focus op Z1/Z2 en geen zware intensiteit"
+        : loadScore <= 9
+          ? "36-48u: geen intensiteit, vooral herstel"
+          : "48-72u: actieve recuperatie en extra slaap/voeding";
+
+  const tips = buildIntervalsTips({
+    durationMin,
+    tss,
+    ifValue,
+    avgHr,
+    maxHr,
+    distanceKm,
+    elevationM,
+    avgPower,
+    np,
+    loadScore,
+  });
+
+  return {
+    sourceFile: filename,
+    analyzedAt: new Date().toISOString(),
+    activityName,
+    activityDate,
+    durationMin,
+    distanceKm,
+    elevationM,
+    avgPower,
+    np,
+    avgHr,
+    maxHr,
+    tss,
+    ifValue,
+    loadScore,
+    loadLabel,
+    recoveryWindow,
+    tips,
+  };
+}
+
+function buildIntervalsTips(metrics) {
+  const tips = [];
+  const {
+    durationMin,
+    tss,
+    ifValue,
+    avgHr,
+    maxHr,
+    distanceKm,
+    elevationM,
+    loadScore,
+  } = metrics;
+
+  if (Number.isFinite(tss) && tss >= 90) {
+    tips.push("Hoge trainingsstress: plan vandaag extra koolhydraten en een eiwitrijke recovery-maaltijd binnen 60 min.");
+  } else {
+    tips.push("Belasting is beheersbaar: hou herstel eenvoudig met hydratatie, lichte beweging en normale slaaproutine.");
+  }
+
+  if (Number.isFinite(ifValue) && ifValue >= 0.88) {
+    tips.push("Intensiteit was hoog: vermijd morgen intensieve intervallen en kies herstel of Z2.");
+  }
+
+  if (Number.isFinite(durationMin) && durationMin >= 120) {
+    tips.push("Lange sessie: focus op glycogeen-aanvulling en minimaal 8 uur slaap.");
+  }
+
+  if (Number.isFinite(maxHr) && Number.isFinite(avgHr) && maxHr - avgHr >= 35) {
+    tips.push("Grote HR-spreiding: neem extra cooling-down en monitor ochtend-RHR/HRV voor je volgende kwaliteitstraining.");
+  }
+
+  if (Number.isFinite(elevationM) && elevationM >= 900) {
+    tips.push("Veel hoogtemeters: voeg mobiliteit voor heup/rug en lichte kuit/hamstring reset toe.");
+  }
+
+  if (Number.isFinite(distanceKm) && distanceKm >= 100) {
+    tips.push("Grote afstand: plan morgen een korte herstelprikkel (20-40 min zeer rustig) of volledige rust.");
+  }
+
+  if (loadScore >= 8) {
+    tips.push("Belasting is hoog tot zeer hoog: schuif krachttraining 24-48u op om kwaliteit te behouden.");
+  }
+
+  if (!tips.length) {
+    tips.push("Onvoldoende details in CSV voor gerichte tips. Controleer of export kolommen zoals duur, TSS, HR en vermogen bevat.");
+  }
+
+  return tips;
+}
+
+function computeWorkoutLoadScore({ durationMin, tss, ifValue, maxHr, elevationM }) {
+  let score = 0;
+
+  if (Number.isFinite(durationMin)) {
+    if (durationMin >= 150) score += 3;
+    else if (durationMin >= 90) score += 2;
+    else if (durationMin >= 60) score += 1;
+  }
+
+  if (Number.isFinite(tss)) {
+    if (tss >= 130) score += 4;
+    else if (tss >= 100) score += 3;
+    else if (tss >= 70) score += 2;
+    else if (tss >= 40) score += 1;
+  }
+
+  if (Number.isFinite(ifValue)) {
+    if (ifValue >= 0.95) score += 4;
+    else if (ifValue >= 0.88) score += 3;
+    else if (ifValue >= 0.8) score += 2;
+    else if (ifValue >= 0.72) score += 1;
+  }
+
+  if (Number.isFinite(maxHr) && maxHr >= 175) score += 1;
+  if (Number.isFinite(elevationM) && elevationM >= 900) score += 1;
+
+  return score;
+}
+
+function parseCsvRows(text) {
+  const lines = text.replace(/^\uFEFF/, "");
+  const firstLine = lines.split(/\r?\n/).find((line) => line.trim().length > 0) || "";
+  const delimiter = detectCsvDelimiter(firstLine);
+
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const char = lines[i];
+    const next = lines[i + 1];
+
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        cell += "\"";
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      row.push(cell.trim());
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(cell.trim());
+      cell = "";
+      if (row.some((x) => x !== "")) rows.push(row);
+      row = [];
+      continue;
+    }
+
+    cell += char;
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell.trim());
+    if (row.some((x) => x !== "")) rows.push(row);
+  }
+
+  if (!rows.length) return [];
+  const headers = rows[0];
+  return rows.slice(1).map((vals) => {
+    const obj = {};
+    headers.forEach((h, idx) => {
+      if (!h) return;
+      obj[h] = vals[idx] ?? "";
+    });
+    return obj;
+  });
+}
+
+function detectCsvDelimiter(line) {
+  const commas = (line.match(/,/g) || []).length;
+  const semicolons = (line.match(/;/g) || []).length;
+  return semicolons > commas ? ";" : ",";
+}
+
+function normalizeCsvRow(row) {
+  const normalized = {};
+  for (const [key, value] of Object.entries(row)) {
+    const nk = normalizeHeader(key);
+    if (!nk) continue;
+    normalized[nk] = value;
+  }
+  return { raw: row, normalized };
+}
+
+function normalizeHeader(header) {
+  return String(header)
+    .toLowerCase()
+    .trim()
+    .replace(/[%()]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[_-]/g, " ");
+}
+
+function pickBestWorkoutRow(rows) {
+  let best = rows[rows.length - 1];
+  let bestScore = -1;
+  for (const row of rows) {
+    const n = row.normalized;
+    let score = 0;
+    if (pickField(n, ["date", "start", "day"])) score += 2;
+    if (parseDurationToMinutes(pickField(n, ["duration", "moving time", "elapsed", "time"])) > 0) score += 2;
+    if (Number.isFinite(pickNumber(n, ["tss", "training stress"]))) score += 2;
+    if (Number.isFinite(pickNumber(n, ["average power", "normalized power", "avg hr"]))) score += 1;
+    if (score >= bestScore) {
+      best = row;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function pickField(normalizedRow, keys) {
+  for (const [header, value] of Object.entries(normalizedRow)) {
+    if (keys.some((k) => headerMatches(header, k))) {
+      const v = String(value || "").trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
+function headerMatches(header, key) {
+  if (!header || !key) return false;
+  const h = String(header);
+  const k = String(key);
+  if (k.length <= 3) {
+    return h === k || h.startsWith(`${k} `) || h.endsWith(` ${k}`) || h.includes(` ${k} `);
+  }
+  return h.includes(k);
+}
+
+function pickNumber(normalizedRow, keys) {
+  const raw = pickField(normalizedRow, keys);
+  return parseSmartNumber(raw);
+}
+
+function parseSmartNumber(v) {
+  if (v == null) return null;
+  const s = String(v).replace(/\s/g, "");
+  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0].replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseDurationToMinutes(v) {
+  if (!v) return null;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return null;
+
+  if (s.includes(":")) {
+    const parts = s.split(":").map((x) => Number(x));
+    if (parts.some((x) => !Number.isFinite(x))) return null;
+    if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 60;
+    if (parts.length === 2) return parts[0] + parts[1] / 60;
+  }
+
+  const numValue = parseSmartNumber(s);
+  if (!Number.isFinite(numValue)) return null;
+
+  if (/\b(sec|secs|second|seconds)\b/.test(s)) return numValue / 60;
+  if (/\b(hour|hours|uur|uren|hr|hrs)\b/.test(s)) return numValue * 60;
+  if (/\b(min|mins|minute|minutes)\b/.test(s)) return numValue;
+  return numValue;
+}
+
+function parseDistanceKm(normalizedRow) {
+  for (const [header, value] of Object.entries(normalizedRow)) {
+    if (!header.includes("distance")) continue;
+    const parsed = parseSmartNumber(value);
+    if (!Number.isFinite(parsed)) continue;
+    if (header.includes("mile")) return parsed * 1.60934;
+    return parsed;
+  }
+  return null;
+}
+
+function formatActivityDate(rawDate) {
+  if (!rawDate) return "-";
+  const parsed = new Date(rawDate);
+  if (!Number.isFinite(parsed.getTime())) return String(rawDate);
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function valueOrDash(v, d = 2) {
+  return Number.isFinite(v) ? round(v, d) : "-";
 }
 
 function generateWorkout(entry, status) {

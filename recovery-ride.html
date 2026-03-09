@@ -133,6 +133,17 @@
           <h2>Coachadvies van de dag</h2>
           <div id="coachSummary" class="coach"></div>
           <button id="refreshCoachBtn" type="button">Advies opnieuw genereren</button>
+          <section class="intervals-analyzer card-soft">
+            <h3>Na-workout analyse (Intervals CSV)</h3>
+            <p class="muted">Upload je Intervals-export om belasting, hersteladvies en praktische tips te krijgen.</p>
+            <div class="actions">
+              <input id="intervalsCsvInput" type="file" accept=".csv,text/csv" />
+              <button id="clearIntervalsBtn" type="button" class="ghost">Wis analyse</button>
+            </div>
+            <p id="intervalsStatus" class="status">Nog geen Intervals CSV geanalyseerd.</p>
+            <div id="intervalsSummary" class="coach"></div>
+            <ul id="intervalsTips" class="advice-list"></ul>
+          </section>
           <section class="workout-builder card-soft">
             <h3>Workout aanmaken</h3>
             <div class="preset-row" id="workoutPresets">

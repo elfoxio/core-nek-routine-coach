@@ -66,6 +66,28 @@ Upload daarna:
 
 - `health-analysis/dashboard-payload.json`
 
+## Recovery & Ride Coach (Garmin screenshot + dagelijkse status)
+
+Open:
+
+- `recovery-ride.html`
+
+MVP bevat:
+
+- Login
+- Dagelijkse check-in (pijn/stress/energie/motivatie + metrics)
+- Dashboard met status (groen/oranje/rood), trends en herstelkalender
+- Coachadvies pagina met workout generator
+- Workout export met keuze: Garmin workout (.json) of Zwift (.zwo)
+- Garmin screenshot upload met OCR om metrics automatisch in te lezen
+- Intervals CSV upload met post-workout analyse, tips en hersteladvies
+- Export naar CSV en print/PDF
+
+Belangrijk:
+
+- OCR gebeurt in de browser met Tesseract.js, dus kwaliteit hangt af van screenshot-scherpte en taal.
+- Controleer altijd de ingevulde waarden voor je opslaat.
+
 ## Publiceren via GitHub Pages
 
 Deze repo bevat al een workflow (`.github/workflows/deploy-pages.yml`) die automatisch publiceert naar GitHub Pages.
