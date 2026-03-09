@@ -42,7 +42,7 @@ async function runSync(env, athleteId) {
   const raw = await fetchIntervalsLatest(env);
   const workout = mapIntervalsWorkout(raw);
   if (!workout) {
-    return { ok: false, message: "No workout data found" };
+    throw httpError(404, "No workout data found in Intervals response");
   }
 
   const payload = {
@@ -94,6 +94,8 @@ async function fetchIntervalsLatest(env) {
   const data = await resp.json();
   if (Array.isArray(data)) return data[0] || null;
   if (Array.isArray(data?.results)) return data.results[0] || null;
+  if (Array.isArray(data?.items)) return data.items[0] || null;
+  if (Array.isArray(data?.activities)) return data.activities[0] || null;
   if (data?.activity) return data.activity;
   return data;
 }

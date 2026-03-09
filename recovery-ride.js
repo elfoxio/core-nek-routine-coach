@@ -855,7 +855,9 @@ async function syncFromBackend({ triggerRemoteSync }) {
       throw new Error(`Latest endpoint fout (${response.status}): ${truncate(errBody, 180)}`);
     }
     const payload = await response.json();
-    if (!payload?.workout) throw new Error("no workout payload");
+    if (!payload?.workout) {
+      throw new Error("Geen workout ontvangen. Controleer of Intervals activiteiten bevat en backend sync succesvol is.");
+    }
 
     const analysis = analyzeIntervalsWorkoutObject(payload.workout, payload.sourceFile || "backend-auto-sync");
     state.intervalsAnalysis = analysis;
