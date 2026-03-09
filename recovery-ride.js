@@ -11,6 +11,7 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const checkinForm = document.getElementById("checkinForm");
 const entryDate = document.getElementById("entryDate");
+const reviewCheckinBtn = document.getElementById("reviewCheckinBtn");
 const fillFromIntervalsBtn = document.getElementById("fillFromIntervalsBtn");
 const checkinStatus = document.getElementById("checkinStatus");
 
@@ -91,6 +92,7 @@ for (const [sliderId, labelId] of sliderMirrors) {
 loginForm.addEventListener("submit", onLogin);
 logoutBtn.addEventListener("click", onLogout);
 checkinForm.addEventListener("submit", onSaveCheckin);
+reviewCheckinBtn.addEventListener("click", onReviewCheckinClick);
 fillFromIntervalsBtn.addEventListener("click", onFillFromIntervalsClick);
 refreshCoachBtn.addEventListener("click", renderCoachAdvice);
 exportCsvBtn.addEventListener("click", exportCsv);
@@ -299,11 +301,13 @@ async function onFillFromIntervalsClick() {
       return;
     }
 
-    if (Number.isFinite(a.tss)) fields.load.value = Math.round(a.tss);
+    const loadFromIntervals = estimateTrainingLoadFromIntervals(a, state.intervalsHistory);
+    if (Number.isFinite(loadFromIntervals)) fields.load.value = Math.round(loadFromIntervals);
     const noteParts = [];
     noteParts.push(`Intervals: ${a.activityName || "Workout"} (${a.activityDate || "-"})`);
     if (Number.isFinite(a.durationMin)) noteParts.push(`duur ${round(a.durationMin, 1)} min`);
     if (Number.isFinite(a.ifValue)) noteParts.push(`IF ${round(a.ifValue, 2)}`);
+    if (Number.isFinite(loadFromIntervals)) noteParts.push(`load ${round(loadFromIntervals, 0)}`);
     if (Number.isFinite(a.avgHr)) noteParts.push(`avg HR ${round(a.avgHr, 0)} bpm`);
     if (Number.isFinite(a.np)) noteParts.push(`NP ${round(a.np, 0)} W`);
     const line = noteParts.join(" | ");
@@ -313,6 +317,50 @@ async function onFillFromIntervalsClick() {
     console.error(err);
     checkinStatus.textContent = `Intervals invullen mislukt: ${err.message || "onbekende fout"}`;
   }
+}
+
+function onReviewCheckinClick() {
+  const checks = [
+    ["Slaap", toNum(fields.sleep.value)],
+    ["HRV", toNum(fields.hrv.value)],
+    ["Rusthartslag", toNum(fields.rhr.value)],
+    ["Training load", toNum(fields.load.value)],
+  ];
+  const missing = checks.filter(([, v]) => !Number.isFinite(v) || v <= 0).map(([label]) => label);
+  if (!missing.length) {
+    checkinStatus.textContent = "Controle OK: kernvelden zijn ingevuld. Je kan nu opslaan.";
+    return;
+  }
+  checkinStatus.textContent = `Controle: vul nog aan -> ${missing.join(", ")}.`;
+}
+
+function estimateTrainingLoadFromIntervals(analysis, history) {
+  if (Number.isFinite(analysis?.tss) && analysis.tss > 0) return analysis.tss;
+
+  const durationMin = toNum(analysis?.durationMin);
+  const ifValue = toNum(analysis?.ifValue);
+  if (Number.isFinite(durationMin) && durationMin > 0 && Number.isFinite(ifValue) && ifValue > 0) {
+    const durationHours = durationMin / 60;
+    const estimated = durationHours * ifValue * ifValue * 100;
+    if (Number.isFinite(estimated) && estimated > 0) return estimated;
+  }
+
+  const latestHistory = getLatestHistoryWorkout(history);
+  if (latestHistory) {
+    const histTss = toNum(latestHistory?.workout?.tss);
+    if (Number.isFinite(histTss) && histTss > 0) return histTss;
+    const histLoad = toNum(latestHistory?.workout?.icu_training_load);
+    if (Number.isFinite(histLoad) && histLoad > 0) return histLoad;
+  }
+
+  return null;
+}
+
+function getLatestHistoryWorkout(history) {
+  if (!Array.isArray(history) || !history.length) return null;
+  return history
+    .slice()
+    .sort((a, b) => String(b?.workout_date || b?.synced_at || "").localeCompare(String(a?.workout_date || a?.synced_at || "")))[0];
 }
 
 function getSortedEntries() {
