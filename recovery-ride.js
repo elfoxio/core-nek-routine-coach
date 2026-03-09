@@ -327,7 +327,17 @@ async function onFillFromIntervalsClick() {
     if (Number.isFinite(a.np)) noteParts.push(`NP ${round(a.np, 0)} W`);
     const line = noteParts.join(" | ");
     fields.notes.value = fields.notes.value ? `${fields.notes.value}\n${line}` : line;
-    checkinStatus.textContent = "Check-in velden aangevuld vanuit Intervals. Controleer en klik Opslaan.";
+    const filled = [
+      Number.isFinite(sleepFromIntervals) ? "slaap" : null,
+      Number.isFinite(hrvFromIntervals) ? "HRV" : null,
+      Number.isFinite(rhrFromIntervals) ? "RHR" : null,
+      Number.isFinite(weightFromIntervals) ? "gewicht" : null,
+      Number.isFinite(fatFromIntervals) ? "vet%" : null,
+      Number.isFinite(loadFromIntervals) ? "load" : null,
+    ].filter(Boolean);
+    checkinStatus.textContent = filled.length
+      ? `Check-in aangevuld vanuit Intervals: ${filled.join(", ")}. Controleer en klik Opslaan.`
+      : "Intervals gaf geen invulbare biometrievelden terug (wel workoutcontext).";
   } catch (err) {
     console.error(err);
     checkinStatus.textContent = `Intervals invullen mislukt: ${err.message || "onbekende fout"}`;

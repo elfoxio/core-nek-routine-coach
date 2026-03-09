@@ -56,7 +56,8 @@ export default {
 
 async function runSync(env, athleteId) {
   const raw = await fetchIntervalsLatest(env);
-  const workout = mapIntervalsWorkout(raw);
+  const wellness = await fetchIntervalsWellnessLatest(env);
+  const workout = mapIntervalsWorkout(raw, wellness);
   if (!workout) {
     throw httpError(404, "No workout data found in Intervals response");
   }
@@ -85,7 +86,7 @@ async function runBackfill(env, athleteId, days) {
   }
 
   const workouts = rawItems
-    .map((raw) => mapIntervalsWorkout(raw))
+    .map((raw) => mapIntervalsWorkout(raw, null))
     .filter((w) => w && w.workout_id);
 
   if (!workouts.length) {
@@ -135,10 +136,20 @@ async function fetchIntervalsRange(env, days) {
   return items;
 }
 
+async function fetchIntervalsWellnessLatest(env) {
+  const endpoint = env.INTERVALS_WELLNESS_API_URL;
+  if (!endpoint) return null;
+  const items = await fetchIntervalsListFromEndpoint(env, endpoint, { limit: 1 });
+  return items[0] || null;
+}
+
 async function fetchIntervalsList(env, opts = {}) {
   const endpoint = env.INTERVALS_API_URL;
   if (!endpoint) throw httpError(500, "INTERVALS_API_URL missing");
+  return fetchIntervalsListFromEndpoint(env, endpoint, opts);
+}
 
+async function fetchIntervalsListFromEndpoint(env, endpoint, opts = {}) {
   const authHeader = env.INTERVALS_AUTH_HEADER || "Authorization";
   const authPrefix = env.INTERVALS_AUTH_PREFIX || "Bearer";
   const authMode = (env.INTERVALS_AUTH_MODE || "BASIC_API_KEY").toUpperCase();
@@ -175,7 +186,7 @@ async function fetchIntervalsList(env, opts = {}) {
   return [];
 }
 
-function mapIntervalsWorkout(raw) {
+function mapIntervalsWorkout(raw, wellnessRaw) {
   if (!raw || typeof raw !== "object") return null;
 
   const rawId = pick(raw, ["id", "activity_id", "activityId", "external_id"]);
@@ -190,26 +201,34 @@ function mapIntervalsWorkout(raw) {
   const maxHr = toNumber(pick(raw, ["max_hr", "hr_max", "heartrate_max"]));
   const tss = toNumber(pick(raw, ["tss", "icu_training_load", "training_stress", "load"]));
   const ifValue = toNumber(pick(raw, ["if_value", "if", "intensity_factor"]));
-  const sleepHours = toHours(
+  let sleepHours = toHours(
     pick(raw, ["sleep_hours", "sleep", "sleep_duration_hours", "sleepDurationHours"]) ??
       pickNested(raw, [["wellness", "sleep_hours"], ["wellness", "sleep"], ["sleep", "hours"], ["metrics", "sleep_hours"]])
   );
-  const hrvMs = toNumber(
+  let hrvMs = toNumber(
     pick(raw, ["hrv_ms", "hrv", "hrv_avg", "heart_rate_variability"]) ??
       pickNested(raw, [["wellness", "hrv"], ["wellness", "hrv_ms"], ["metrics", "hrv_ms"]])
   );
-  const rhrBpm = toNumber(
+  let rhrBpm = toNumber(
     pick(raw, ["rhr_bpm", "resting_hr", "resting_heart_rate", "restingHR"]) ??
       pickNested(raw, [["wellness", "resting_hr"], ["wellness", "rhr"], ["metrics", "resting_hr"]])
   );
-  const weightKg = toNumber(
+  let weightKg = toNumber(
     pick(raw, ["weight_kg", "weight", "body_weight", "mass"]) ??
       pickNested(raw, [["wellness", "weight_kg"], ["wellness", "weight"], ["metrics", "weight_kg"]])
   );
-  const bodyFatPct = toNumber(
+  let bodyFatPct = toPercent(
     pick(raw, ["body_fat_pct", "body_fat", "fat_pct", "bodyfat"]) ??
       pickNested(raw, [["wellness", "body_fat_pct"], ["wellness", "body_fat"], ["metrics", "body_fat_pct"]])
   );
+
+  if (wellnessRaw && typeof wellnessRaw === "object") {
+    sleepHours = sleepHours ?? toHours(pick(wellnessRaw, ["sleep", "sleep_hours", "sleepDurationHours", "sleep_duration_hours"]));
+    hrvMs = hrvMs ?? toNumber(pick(wellnessRaw, ["hrv", "hrv_ms", "hrv_avg", "rmssd"]));
+    rhrBpm = rhrBpm ?? toNumber(pick(wellnessRaw, ["resting_hr", "rhr", "resting_heart_rate"]));
+    weightKg = weightKg ?? toNumber(pick(wellnessRaw, ["weight", "weight_kg", "body_weight"]));
+    bodyFatPct = bodyFatPct ?? toPercent(pick(wellnessRaw, ["body_fat", "body_fat_pct", "fat_pct"]));
+  }
   const workoutId = rawId ? String(rawId) : makeWorkoutId(name, startDate);
 
   return {
@@ -413,6 +432,13 @@ function toHours(value) {
   if (!Number.isFinite(n)) return null;
   if (/\b(sec|second|seconds)\b/.test(s)) return n / 3600;
   if (/\b(min|mins|minute|minutes)\b/.test(s)) return n / 60;
+  return n;
+}
+
+function toPercent(value) {
+  const n = toNumber(value);
+  if (!Number.isFinite(n)) return null;
+  if (n > 0 && n <= 1) return n * 100;
   return n;
 }
 

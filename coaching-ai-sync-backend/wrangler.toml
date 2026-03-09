@@ -8,6 +8,7 @@ crons = ["0 * * * *"]
 [vars]
 DEFAULT_ATHLETE_ID = "kevin"
 INTERVALS_API_URL = "https://intervals.icu/api/v1/athlete/0/activities?limit=1"
+INTERVALS_WELLNESS_API_URL = "https://intervals.icu/api/v1/athlete/0/wellness?limit=1"
 INTERVALS_AUTH_HEADER = "Authorization"
 INTERVALS_AUTH_PREFIX = "Bearer"
 INTERVALS_AUTH_MODE = "BASIC_API_KEY"
