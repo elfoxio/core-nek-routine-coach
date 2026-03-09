@@ -42,6 +42,9 @@ const clearIntervalsBtn = document.getElementById("clearIntervalsBtn");
 const intervalsStatus = document.getElementById("intervalsStatus");
 const intervalsSummary = document.getElementById("intervalsSummary");
 const intervalsTips = document.getElementById("intervalsTips");
+const intervalsHistoryStatus = document.getElementById("intervalsHistoryStatus");
+const intervalsHistorySummary = document.getElementById("intervalsHistorySummary");
+const intervalsHistoryCharts = document.getElementById("intervalsHistoryCharts");
 const syncBaseUrlInput = document.getElementById("syncBaseUrlInput");
 const syncClientTokenInput = document.getElementById("syncClientTokenInput");
 const syncAthleteIdInput = document.getElementById("syncAthleteIdInput");
@@ -122,10 +125,11 @@ function loadState() {
       user: saved.user || null,
       entries: saved.entries || {},
       intervalsAnalysis: saved.intervalsAnalysis || null,
+      intervalsHistory: Array.isArray(saved.intervalsHistory) ? saved.intervalsHistory : [],
       syncConfig: saved.syncConfig || defaultSyncConfig(),
     };
   } catch {
-    return { user: null, entries: {}, intervalsAnalysis: null, syncConfig: defaultSyncConfig() };
+    return { user: null, entries: {}, intervalsAnalysis: null, intervalsHistory: [], syncConfig: defaultSyncConfig() };
   }
 }
 
@@ -159,6 +163,7 @@ function init() {
   renderDashboard();
   renderCoachAdvice();
   renderIntervalsAnalysis();
+  renderIntervalsHistory();
   hydrateSyncConfigUi();
   if (state.syncConfig?.enabled) {
     syncFromBackend({ triggerRemoteSync: false });
@@ -632,7 +637,7 @@ function renderTrendCards(entries) {
     .join("");
 }
 
-function sparkline(points) {
+function sparkline(points, color = "#1f5e52") {
   if (!points.length) return '<svg class="spark" viewBox="0 0 220 120"><text x="12" y="60" fill="#5f6d75">Geen data</text></svg>';
   const width = 220;
   const height = 120;
@@ -652,7 +657,7 @@ function sparkline(points) {
 
   return `
     <svg class="spark" viewBox="0 0 ${width} ${height}">
-      <polyline fill="none" stroke="#1f5e52" stroke-width="2.4" points="${line}"></polyline>
+      <polyline fill="none" stroke="${color}" stroke-width="2.4" points="${line}"></polyline>
       <text x="${pad}" y="12" font-size="11" fill="#53666d">max ${round(max, 1)}</text>
       <text x="${pad}" y="${height - 4}" font-size="11" fill="#53666d">min ${round(min, 1)}</text>
     </svg>
@@ -854,6 +859,7 @@ async function backfillFromBackend(days) {
     const payload = await response.json();
     syncStatus.textContent = `Historiek klaar: ${payload.importedCount || 0} workouts geïmporteerd (${payload.days || days} dagen).`;
     await syncFromBackend({ triggerRemoteSync: false });
+    await fetchHistoryFromBackend(days);
   } catch (err) {
     console.error(err);
     syncStatus.textContent = `Historiek sync mislukt: ${err.message || "onbekende fout"}`;
@@ -900,12 +906,39 @@ async function syncFromBackend({ triggerRemoteSync }) {
     state.syncConfig.lastSyncedAt = payload.syncedAt || new Date().toISOString();
     saveState();
     renderIntervalsAnalysis();
+    await fetchHistoryFromBackend(clampInt(toNum(backfillDaysInput.value) || 365, 7, 1825));
     renderCoachAdvice();
     hydrateSyncConfigUi();
     intervalsStatus.textContent = `Backend sync klaar (${analysis.activityDate}).`;
   } catch (err) {
     console.error(err);
     syncStatus.textContent = `Backend sync mislukt: ${err.message || "onbekende fout"}`;
+  }
+}
+
+async function fetchHistoryFromBackend(days) {
+  const cfg = state.syncConfig;
+  if (!cfg?.enabled || !cfg.baseUrl || !cfg.clientToken || !cfg.athleteId) return;
+  try {
+    intervalsHistoryStatus.textContent = "Historiek laden...";
+    const url = `${cfg.baseUrl}/api/public/history?athlete=${encodeURIComponent(cfg.athleteId)}&days=${encodeURIComponent(String(days))}`;
+    const response = await fetch(url, {
+      headers: {
+        "x-client-token": cfg.clientToken,
+      },
+    });
+    if (!response.ok) {
+      const errBody = await readSafeText(response);
+      throw new Error(`History endpoint fout (${response.status}): ${truncate(errBody, 160)}`);
+    }
+    const payload = await response.json();
+    state.intervalsHistory = Array.isArray(payload.workouts) ? payload.workouts : [];
+    saveState();
+    renderIntervalsHistory();
+    intervalsHistoryStatus.textContent = `Historiek geladen: ${state.intervalsHistory.length} workouts (${days} dagen).`;
+  } catch (err) {
+    console.error(err);
+    intervalsHistoryStatus.textContent = `Historiek laden mislukt: ${err.message || "onbekende fout"}`;
   }
 }
 
@@ -927,6 +960,55 @@ function renderIntervalsAnalysis() {
   `;
 
   intervalsTips.innerHTML = a.tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
+}
+
+function renderIntervalsHistory() {
+  const history = Array.isArray(state.intervalsHistory) ? state.intervalsHistory : [];
+  if (!history.length) {
+    intervalsHistorySummary.innerHTML = "<p class=\"muted\">Nog geen historische workouts beschikbaar.</p>";
+    intervalsHistoryCharts.innerHTML = "";
+    return;
+  }
+
+  const tssVals = history.map((w) => toNum(w?.workout?.tss)).filter((v) => Number.isFinite(v));
+  const durVals = history.map((w) => toNum(w?.workout?.duration_min)).filter((v) => Number.isFinite(v));
+  const ifVals = history.map((w) => toNum(w?.workout?.if_value)).filter((v) => Number.isFinite(v));
+  const avgTss = tssVals.length ? average(tssVals) : null;
+  const avgDur = durVals.length ? average(durVals) : null;
+  const avgIf = ifVals.length ? average(ifVals) : null;
+
+  intervalsHistorySummary.innerHTML = [
+    renderTrendKpi("Workouts", String(history.length)),
+    renderTrendKpi("Gem. TSS", valueOrDash(avgTss, 1)),
+    renderTrendKpi("Gem. duur (min)", valueOrDash(avgDur, 1)),
+  ].join("");
+
+  const chartSeries = [
+    {
+      label: "TSS",
+      values: history.map((w) => ({ x: w.workout_date || w.synced_at, y: toNum(w?.workout?.tss) })).filter((p) => Number.isFinite(p.y)),
+      color: "#b34b21",
+    },
+    {
+      label: "Duur (min)",
+      values: history.map((w) => ({ x: w.workout_date || w.synced_at, y: toNum(w?.workout?.duration_min) })).filter((p) => Number.isFinite(p.y)),
+      color: "#1f5e52",
+    },
+    {
+      label: "IF",
+      values: history.map((w) => ({ x: w.workout_date || w.synced_at, y: toNum(w?.workout?.if_value) })).filter((p) => Number.isFinite(p.y)),
+      color: "#3e4bb8",
+      fallback: avgIf,
+    },
+  ];
+
+  intervalsHistoryCharts.innerHTML = chartSeries
+    .map((s) => `<article class="trend-card"><h4>${s.label}</h4><p>${s.label === "IF" ? valueOrDash(avgIf, 2) : "-"}</p>${sparkline(s.values, s.color)}</article>`)
+    .join("");
+}
+
+function renderTrendKpi(label, value) {
+  return `<article class="trend-card"><h4>${escapeHtml(label)}</h4><p>${escapeHtml(value)}</p></article>`;
 }
 
 function analyzeIntervalsWorkoutObject(workout, sourceFile) {
@@ -1317,6 +1399,13 @@ function formatActivityDate(rawDate) {
 
 function valueOrDash(v, d = 2) {
   return Number.isFinite(v) ? round(v, d) : "-";
+}
+
+function average(values) {
+  if (!Array.isArray(values) || !values.length) return null;
+  const filtered = values.filter((v) => Number.isFinite(v));
+  if (!filtered.length) return null;
+  return filtered.reduce((sum, v) => sum + v, 0) / filtered.length;
 }
 
 function normalizeBaseUrl(value) {

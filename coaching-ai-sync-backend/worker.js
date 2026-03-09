@@ -13,6 +13,14 @@ export default {
         return cors(jsonResponse(latest || { workout: null, syncedAt: null }));
       }
 
+      if (path === "/api/public/history" && request.method === "GET") {
+        requireClientToken(request, env);
+        const athlete = getAthleteId(url, env);
+        const days = getBackfillDays(url);
+        const history = await getWorkoutHistory(env, athlete, days);
+        return cors(jsonResponse({ workouts: history, days }));
+      }
+
       if (path === "/api/client/sync" && request.method === "POST") {
         requireClientToken(request, env);
         const athlete = getAthleteId(url, env);
@@ -260,6 +268,28 @@ async function getLatestWorkout(env, athleteId) {
     sourceFile: row.source_file,
     workout: row.workout || null,
   };
+}
+
+async function getWorkoutHistory(env, athleteId, days) {
+  const since = isoDateDaysAgo(days);
+  const query = new URLSearchParams({
+    athlete_id: `eq.${athleteId}`,
+    workout_date: `gte.${since}`,
+    select: "athlete_id,workout_id,workout_date,synced_at,source_file,workout",
+    order: "workout_date.asc",
+    limit: "5000",
+  });
+
+  const url = `${env.SUPABASE_URL}/rest/v1/intervals_workouts_history?${query.toString()}`;
+  const resp = await fetch(url, {
+    headers: supabaseHeaders(env),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw httpError(502, `Supabase history read failed: ${detail || resp.status}`);
+  }
+  const rows = await resp.json();
+  return Array.isArray(rows) ? rows : [];
 }
 
 function supabaseHeaders(env, extra = {}) {
