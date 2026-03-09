@@ -68,16 +68,28 @@ async function fetchIntervalsLatest(env) {
 
   const authHeader = env.INTERVALS_AUTH_HEADER || "Authorization";
   const authPrefix = env.INTERVALS_AUTH_PREFIX || "Bearer";
+  const authMode = (env.INTERVALS_AUTH_MODE || "BASIC_API_KEY").toUpperCase();
   const apiKey = env.INTERVALS_API_KEY;
   if (!apiKey) throw httpError(500, "INTERVALS_API_KEY missing");
 
   const headers = {
     Accept: "application/json",
   };
-  headers[authHeader] = `${authPrefix} ${apiKey}`;
+  if (authMode === "BASIC_API_KEY") {
+    headers[authHeader] = `Basic ${encodeBase64(`API_KEY:${apiKey}`)}`;
+  } else if (authMode === "BEARER") {
+    headers[authHeader] = `${authPrefix} ${apiKey}`;
+  } else if (authMode === "APIKEY_INLINE") {
+    headers[authHeader] = `ApiKey API_KEY:${apiKey}`;
+  } else {
+    throw httpError(500, `Unsupported INTERVALS_AUTH_MODE: ${authMode}`);
+  }
 
   const resp = await fetch(endpoint, { headers });
-  if (!resp.ok) throw httpError(502, `Intervals API error ${resp.status}`);
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw httpError(502, `Intervals API error ${resp.status}: ${detail.slice(0, 300)}`);
+  }
 
   const data = await resp.json();
   if (Array.isArray(data)) return data[0] || null;
@@ -260,4 +272,8 @@ function httpError(status, message) {
   const err = new Error(message);
   err.status = status;
   return err;
+}
+
+function encodeBase64(input) {
+  return btoa(input);
 }

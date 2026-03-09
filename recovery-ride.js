@@ -832,12 +832,16 @@ async function syncFromBackend({ triggerRemoteSync }) {
   try {
     if (triggerRemoteSync) {
       const remoteSyncUrl = `${cfg.baseUrl}/api/client/sync?athlete=${encodeURIComponent(cfg.athleteId)}`;
-      await fetch(remoteSyncUrl, {
+      const syncResp = await fetch(remoteSyncUrl, {
         method: "POST",
         headers: {
           "x-client-token": cfg.clientToken,
         },
       });
+      if (!syncResp.ok) {
+        const errBody = await readSafeText(syncResp);
+        throw new Error(`Sync endpoint fout (${syncResp.status}): ${truncate(errBody, 180)}`);
+      }
     }
 
     const latestUrl = `${cfg.baseUrl}/api/public/latest?athlete=${encodeURIComponent(cfg.athleteId)}`;
@@ -846,7 +850,10 @@ async function syncFromBackend({ triggerRemoteSync }) {
         "x-client-token": cfg.clientToken,
       },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const errBody = await readSafeText(response);
+      throw new Error(`Latest endpoint fout (${response.status}): ${truncate(errBody, 180)}`);
+    }
     const payload = await response.json();
     if (!payload?.workout) throw new Error("no workout payload");
 
@@ -860,7 +867,7 @@ async function syncFromBackend({ triggerRemoteSync }) {
     intervalsStatus.textContent = `Backend sync klaar (${analysis.activityDate}).`;
   } catch (err) {
     console.error(err);
-    syncStatus.textContent = "Backend sync mislukt. Controleer URL/token of backend-config.";
+    syncStatus.textContent = `Backend sync mislukt: ${err.message || "onbekende fout"}`;
   }
 }
 
@@ -1278,6 +1285,19 @@ function normalizeBaseUrl(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "";
   return trimmed.replace(/\/+$/, "");
+}
+
+async function readSafeText(response) {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+function truncate(text, maxLen) {
+  const s = String(text || "");
+  return s.length > maxLen ? `${s.slice(0, maxLen)}...` : s;
 }
 
 function generateWorkout(entry, status) {
