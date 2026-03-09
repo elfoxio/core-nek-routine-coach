@@ -182,6 +182,38 @@ th {
   line-height: 1.45;
 }
 
+.medical-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.severity {
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.severity-green {
+  color: #165f43;
+  background: #e9f7f0;
+  border-color: #badfcd;
+}
+
+.severity-amber {
+  color: #7b5105;
+  background: #fff6df;
+  border-color: #efd7a0;
+}
+
+.severity-red {
+  color: #7d1f1f;
+  background: #fdebec;
+  border-color: #efb9be;
+}
+
 .chart {
   width: 100%;
   height: 220px;

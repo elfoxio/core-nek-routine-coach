@@ -10,6 +10,8 @@ const statusEl = document.getElementById("status");
 const kpisEl = document.getElementById("kpis");
 const trendTableEl = document.getElementById("trendTable");
 const adviceListEl = document.getElementById("adviceList");
+const doctorAdviceListEl = document.getElementById("doctorAdviceList");
+const doctorSeverityEl = document.getElementById("doctorSeverity");
 const monthlyTable = document.getElementById("monthlyTable");
 const stepsChart = document.getElementById("stepsChart");
 const sleepChart = document.getElementById("sleepChart");
@@ -132,6 +134,7 @@ function processData(root) {
     renderKpis(workoutStats, range, metricDaily);
     renderTrends(trends, metricUnits || {});
     renderAdvice(trends, correlations, workoutStats, metricDaily);
+    renderDoctorAdvice(trends, metricDaily);
     renderMonthlyTable(monthlyRows);
     renderLineChart(stepsChart, monthlyRows, "step_count", "#1f4b99");
     renderLineChart(sleepChart, monthlyRows, "sleep_hours_est", "#1d7a52");
@@ -147,6 +150,7 @@ function processData(root) {
   renderKpis(workoutStats, range, metricDaily);
   renderTrends(trends, metricUnits);
   renderAdvice(trends, correlations, workoutStats, metricDaily);
+  renderDoctorAdvice(trends, metricDaily);
   renderMonthlyTable(monthlyRows);
   renderLineChart(stepsChart, monthlyRows, "step_count", "#1f4b99");
   renderLineChart(sleepChart, monthlyRows, "sleep_hours_est", "#1d7a52");
@@ -406,6 +410,80 @@ function renderAdvice(trends, correlations, workoutStats, metricDaily) {
   }
 
   adviceListEl.innerHTML = advice.map((x) => `<li>${x}</li>`).join("");
+}
+
+function setSeverity(level, text) {
+  if (!doctorSeverityEl) return;
+  doctorSeverityEl.className = "severity";
+  if (level === "red") doctorSeverityEl.classList.add("severity-red");
+  else if (level === "amber") doctorSeverityEl.classList.add("severity-amber");
+  else doctorSeverityEl.classList.add("severity-green");
+  doctorSeverityEl.textContent = text;
+}
+
+function renderDoctorAdvice(trends, metricDaily) {
+  if (!doctorAdviceListEl) return;
+
+  const notes = [];
+  let severity = "green";
+
+  const sleep = trends.sleep_hours_est;
+  const rhr = trends.resting_heart_rate;
+  const hrv = trends.heart_rate_variability;
+  const weight = trends.weight_body_mass;
+
+  if (sleep && sleep.last < 6) {
+    notes.push("Gemiddelde slaap < 6u in recente periode. Dit verhoogt risico op vermoeidheid, slechter herstel en hart-belasting. Bespreek slaapaanpak met huisarts als dit aanhoudt.");
+    severity = "amber";
+  }
+
+  if (rhr && rhr.delta > 5) {
+    notes.push("Rusthartslag steeg > 5 bpm tegenover eerdere periode. Vaak teken van stress, ziekte, overbelasting of hersteltekort. Overweeg medische check als dit langer dan 2-3 weken blijft.");
+    severity = "amber";
+  } else if (rhr && rhr.last >= 75) {
+    notes.push("Recente rusthartslag is relatief hoog voor jouw patroon. Meet een week in rustmomenten en bespreek met arts bij aanhoudend hoge waarden.");
+    severity = "amber";
+  }
+
+  if (hrv && hrv.delta < -8) {
+    notes.push("HRV daalt duidelijk in recente periode. Dit kan passen bij langdurige stress/overbelasting. Verminder intensiteit tijdelijk en evalueer herstel.");
+    severity = "amber";
+  }
+
+  if (sleep && rhr && hrv && sleep.last < 6 && rhr.delta > 5 && hrv.delta < -5) {
+    notes.push("Combinatie van korte slaap, stijgende rusthartslag en dalende HRV is een sterk herstel-waarschuwingssignaal. Medische opvolging is verstandig als je je ook klinisch slechter voelt.");
+    severity = "red";
+  }
+
+  if (weight && weight.delta > 2.5) {
+    notes.push("Gewicht steeg > 2.5 kg over de geanalyseerde periodes. Als dit onbedoeld is, overleg met arts/diëtist over voeding, stress, slaap en vochtretentie.");
+    if (severity === "green") severity = "amber";
+  }
+
+  const rhrDaily = Object.values(metricDaily.resting_heart_rate || {}).filter((x) => Number.isFinite(x));
+  if (rhrDaily.length) {
+    const recent7 = average(rhrDaily.slice(-7));
+    const prev21 = average(rhrDaily.slice(-28, -7));
+    if (Number.isFinite(recent7) && Number.isFinite(prev21) && recent7 - prev21 > 7) {
+      notes.push("Laatste 7 dagen rusthartslag ligt > 7 bpm boven de 3 weken ervoor. Dit verdient extra aandacht en mogelijk medische evaluatie bij klachten.");
+      severity = "red";
+    }
+  }
+
+  if (!notes.length) {
+    notes.push("Op basis van deze data zijn er geen duidelijke rode vlaggen zichtbaar. Focus op consistent slapen, rustige basisduur en progressieve opbouw.");
+  }
+
+  if (severity === "red") {
+    setSeverity("red", "Status: verhoogde medische aandacht aanbevolen");
+  } else if (severity === "amber") {
+    setSeverity("amber", "Status: let op en overleg laagdrempelig met arts bij aanhoudende trend");
+  } else {
+    setSeverity("green", "Status: geen duidelijke alarmsignalen in data");
+  }
+
+  notes.push("Zoek meteen medische hulp bij druk op de borst, flauwvallen, ernstige kortademigheid, of plots neurologische klachten.");
+  doctorAdviceListEl.innerHTML = notes.map((x) => `<li>${x}</li>`).join("");
 }
 
 function renderMonthlyTable(rows) {
