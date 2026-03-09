@@ -92,13 +92,13 @@ function mapIntervalsWorkout(raw) {
   const name = pick(raw, ["name", "activity_name", "title", "workout"]);
   const startDate = pick(raw, ["start_date", "startDate", "date", "start_time", "start"]);
   const durationMin = toMinutes(pick(raw, ["duration_min", "duration", "moving_time", "elapsed_time", "time"]));
-  const distanceKm = toNumber(pick(raw, ["distance_km", "distance", "distanceKm"]));
+  const distanceKm = toKilometers(pick(raw, ["distance_km", "distance", "distanceKm"]));
   const elevationM = toNumber(pick(raw, ["elevation_m", "elevation", "ascent", "climb"]));
   const avgPower = toNumber(pick(raw, ["avg_power", "average_power", "power"]));
   const np = toNumber(pick(raw, ["np", "normalized_power", "norm_power"]));
   const avgHr = toNumber(pick(raw, ["avg_hr", "average_hr", "hr_avg", "heartrate_average"]));
   const maxHr = toNumber(pick(raw, ["max_hr", "hr_max", "heartrate_max"]));
-  const tss = toNumber(pick(raw, ["tss", "training_stress", "load"]));
+  const tss = toNumber(pick(raw, ["tss", "icu_training_load", "training_stress", "load"]));
   const ifValue = toNumber(pick(raw, ["if_value", "if", "intensity_factor"]));
 
   return {
@@ -223,6 +223,14 @@ function toMinutes(value) {
   if (!Number.isFinite(n)) return null;
   if (/\b(sec|second|seconds)\b/.test(s)) return n / 60;
   if (/\b(hour|hours|hr|hrs|uur|uren)\b/.test(s)) return n * 60;
+  return n;
+}
+
+function toKilometers(value) {
+  const n = toNumber(value);
+  if (!Number.isFinite(n)) return null;
+  // Intervals often returns meters for distance; convert if value is too large for km.
+  if (n > 300) return n / 1000;
   return n;
 }
 
