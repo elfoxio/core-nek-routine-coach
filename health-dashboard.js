@@ -1,4 +1,5 @@
 const STORAGE_KEY = "healthDashboard.lastJson";
+const MAX_BROWSER_PARSE_BYTES = 200 * 1024 * 1024;
 
 const jsonInput = document.getElementById("jsonInput");
 const loadSavedBtn = document.getElementById("loadSavedBtn");
@@ -65,6 +66,13 @@ function pct(delta, base) {
 async function onFileSelected(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  if (file.size > MAX_BROWSER_PARSE_BYTES) {
+    const gb = (file.size / (1024 ** 3)).toFixed(2);
+    setStatus(
+      `Bestand is ${gb} GB en te groot voor directe browser-analyse. Gebruik eerst de compacte export via: python3 health-analysis/export_dashboard_payload.py "<pad-naar-json>".`
+    );
+    return;
+  }
   setStatus(`Bezig met verwerken: ${file.name}...`);
   try {
     const text = await file.text();
@@ -99,6 +107,21 @@ function onClearSaved() {
 }
 
 function processData(root) {
+  if (root?.dashboardPayloadVersion === 1) {
+    const payload = root.payload || root;
+    const { metricDaily, metricUnits, monthlyRows, workoutStats, trends, correlations, range } = payload;
+    if (!metricDaily || !monthlyRows || !workoutStats || !trends || !correlations) {
+      throw new Error("Ongeldig compact dashboardbestand");
+    }
+    renderKpis(workoutStats, range, metricDaily);
+    renderTrends(trends, metricUnits || {});
+    renderAdvice(trends, correlations, workoutStats, metricDaily);
+    renderMonthlyTable(monthlyRows);
+    renderLineChart(stepsChart, monthlyRows, "step_count", "#1f4b99");
+    renderLineChart(sleepChart, monthlyRows, "sleep_hours_est", "#1d7a52");
+    return;
+  }
+
   const data = root?.data;
   if (!data || !Array.isArray(data.metrics) || !Array.isArray(data.workouts)) {
     throw new Error("Unexpected JSON shape");

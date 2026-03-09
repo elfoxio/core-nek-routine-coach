@@ -23,6 +23,11 @@
         <p class="hint">
           Tip: bij zeer grote exports kan verwerken 10-30 seconden duren. Je browser slaat de laatste upload lokaal op.
         </p>
+        <p class="hint">
+          Is je JSON groter dan ~200 MB? Genereer eerst een compacte file met:
+          <code>python3 health-analysis/export_dashboard_payload.py "/pad/naar/HealthAutoExport.json"</code>
+          en upload daarna <code>health-analysis/dashboard-payload.json</code>.
+        </p>
         <p id="status" class="status">Nog geen bestand geladen.</p>
       </section>
 

@@ -56,6 +56,16 @@ Wat je kan doen:
 - Je krijgt concrete verbeteradviezen voor training, herstel en leefstijl
 - Laatste upload wordt lokaal bewaard in je browser (knop: `Laad laatste upload`)
 
+Voor grote exports (bijv. >200 MB), maak eerst een compact bestand:
+
+```bash
+python3 health-analysis/export_dashboard_payload.py "/volledig/pad/naar/HealthAutoExport.json"
+```
+
+Upload daarna:
+
+- `health-analysis/dashboard-payload.json`
+
 ## Publiceren via GitHub Pages
 
 Deze repo bevat al een workflow (`.github/workflows/deploy-pages.yml`) die automatisch publiceert naar GitHub Pages.
