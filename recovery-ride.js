@@ -42,6 +42,13 @@ const clearIntervalsBtn = document.getElementById("clearIntervalsBtn");
 const intervalsStatus = document.getElementById("intervalsStatus");
 const intervalsSummary = document.getElementById("intervalsSummary");
 const intervalsTips = document.getElementById("intervalsTips");
+const syncBaseUrlInput = document.getElementById("syncBaseUrlInput");
+const syncClientTokenInput = document.getElementById("syncClientTokenInput");
+const syncAthleteIdInput = document.getElementById("syncAthleteIdInput");
+const saveSyncSettingsBtn = document.getElementById("saveSyncSettingsBtn");
+const syncNowBtn = document.getElementById("syncNowBtn");
+const disableSyncBtn = document.getElementById("disableSyncBtn");
+const syncStatus = document.getElementById("syncStatus");
 
 let lastWorkoutBuild = null;
 
@@ -90,6 +97,9 @@ downloadWorkoutBtn.addEventListener("click", onDownloadWorkout);
 autoPresetBtn.addEventListener("click", onAutoPresetClick);
 intervalsCsvInput.addEventListener("change", onIntervalsCsvUpload);
 clearIntervalsBtn.addEventListener("click", onClearIntervalsAnalysis);
+saveSyncSettingsBtn.addEventListener("click", onSaveSyncSettings);
+syncNowBtn.addEventListener("click", onSyncNowClick);
+disableSyncBtn.addEventListener("click", onDisableSyncClick);
 document.querySelectorAll(".preset-btn[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => onPresetClick(btn.dataset.preset));
 });
@@ -109,10 +119,21 @@ function loadState() {
       user: saved.user || null,
       entries: saved.entries || {},
       intervalsAnalysis: saved.intervalsAnalysis || null,
+      syncConfig: saved.syncConfig || defaultSyncConfig(),
     };
   } catch {
-    return { user: null, entries: {}, intervalsAnalysis: null };
+    return { user: null, entries: {}, intervalsAnalysis: null, syncConfig: defaultSyncConfig() };
   }
+}
+
+function defaultSyncConfig() {
+  return {
+    enabled: false,
+    baseUrl: "",
+    clientToken: "",
+    athleteId: "",
+    lastSyncedAt: "",
+  };
 }
 
 function saveState() {
@@ -135,6 +156,13 @@ function init() {
   renderDashboard();
   renderCoachAdvice();
   renderIntervalsAnalysis();
+  hydrateSyncConfigUi();
+  if (state.syncConfig?.enabled) {
+    syncFromBackend({ triggerRemoteSync: false });
+    setInterval(() => {
+      if (state.syncConfig?.enabled) syncFromBackend({ triggerRemoteSync: false });
+    }, 5 * 60 * 1000);
+  }
 }
 
 function showLogin() {
@@ -748,6 +776,94 @@ function onClearIntervalsAnalysis() {
   intervalsStatus.textContent = "Intervals analyse gewist.";
 }
 
+function hydrateSyncConfigUi() {
+  const cfg = state.syncConfig || defaultSyncConfig();
+  syncBaseUrlInput.value = cfg.baseUrl || "";
+  syncClientTokenInput.value = cfg.clientToken || "";
+  syncAthleteIdInput.value = cfg.athleteId || "";
+  syncStatus.textContent = cfg.enabled
+    ? `Auto sync actief${cfg.lastSyncedAt ? ` (laatste sync: ${cfg.lastSyncedAt})` : ""}.`
+    : "Auto sync staat uit.";
+}
+
+function onSaveSyncSettings() {
+  const baseUrl = normalizeBaseUrl(syncBaseUrlInput.value);
+  const clientToken = syncClientTokenInput.value.trim();
+  const athleteId = (syncAthleteIdInput.value || state.user?.name || "athlete").trim().toLowerCase();
+  if (!baseUrl || !clientToken || !athleteId) {
+    syncStatus.textContent = "Vul backend URL, client token en athlete ID in.";
+    return;
+  }
+
+  state.syncConfig = {
+    ...state.syncConfig,
+    enabled: true,
+    baseUrl,
+    clientToken,
+    athleteId,
+  };
+  saveState();
+  hydrateSyncConfigUi();
+  syncFromBackend({ triggerRemoteSync: false });
+}
+
+function onDisableSyncClick() {
+  state.syncConfig = {
+    ...defaultSyncConfig(),
+    enabled: false,
+  };
+  saveState();
+  hydrateSyncConfigUi();
+}
+
+function onSyncNowClick() {
+  if (!state.syncConfig?.enabled) {
+    syncStatus.textContent = "Bewaar eerst sync instellingen.";
+    return;
+  }
+  syncFromBackend({ triggerRemoteSync: true });
+}
+
+async function syncFromBackend({ triggerRemoteSync }) {
+  const cfg = state.syncConfig;
+  if (!cfg?.enabled || !cfg.baseUrl || !cfg.clientToken || !cfg.athleteId) return;
+  syncStatus.textContent = triggerRemoteSync ? "Sync gestart..." : "Backend data verversen...";
+
+  try {
+    if (triggerRemoteSync) {
+      const remoteSyncUrl = `${cfg.baseUrl}/api/client/sync?athlete=${encodeURIComponent(cfg.athleteId)}`;
+      await fetch(remoteSyncUrl, {
+        method: "POST",
+        headers: {
+          "x-client-token": cfg.clientToken,
+        },
+      });
+    }
+
+    const latestUrl = `${cfg.baseUrl}/api/public/latest?athlete=${encodeURIComponent(cfg.athleteId)}`;
+    const response = await fetch(latestUrl, {
+      headers: {
+        "x-client-token": cfg.clientToken,
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload?.workout) throw new Error("no workout payload");
+
+    const analysis = analyzeIntervalsWorkoutObject(payload.workout, payload.sourceFile || "backend-auto-sync");
+    state.intervalsAnalysis = analysis;
+    state.syncConfig.lastSyncedAt = payload.syncedAt || new Date().toISOString();
+    saveState();
+    renderIntervalsAnalysis();
+    renderCoachAdvice();
+    hydrateSyncConfigUi();
+    intervalsStatus.textContent = `Backend sync klaar (${analysis.activityDate}).`;
+  } catch (err) {
+    console.error(err);
+    syncStatus.textContent = "Backend sync mislukt. Controleer URL/token of backend-config.";
+  }
+}
+
 function renderIntervalsAnalysis() {
   const a = state.intervalsAnalysis;
   if (!a) {
@@ -766,6 +882,64 @@ function renderIntervalsAnalysis() {
   `;
 
   intervalsTips.innerHTML = a.tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
+}
+
+function analyzeIntervalsWorkoutObject(workout, sourceFile) {
+  const durationMin = parseSmartNumber(workout.duration_min);
+  const distanceKm = parseSmartNumber(workout.distance_km);
+  const elevationM = parseSmartNumber(workout.elevation_m);
+  const avgPower = parseSmartNumber(workout.avg_power);
+  const np = parseSmartNumber(workout.np);
+  const avgHr = parseSmartNumber(workout.avg_hr);
+  const maxHr = parseSmartNumber(workout.max_hr);
+  const tss = parseSmartNumber(workout.tss);
+  const ifValue = parseSmartNumber(workout.if_value);
+  const activityName = workout.name || workout.activity_name || "Intervals workout";
+  const activityDate = formatActivityDate(workout.start_date || workout.date || workout.synced_at);
+
+  const loadScore = computeWorkoutLoadScore({ durationMin, tss, ifValue, maxHr, elevationM });
+  const loadLabel = loadScore <= 3 ? "Licht" : loadScore <= 6 ? "Matig" : loadScore <= 9 ? "Hoog" : "Zeer hoog";
+  const recoveryWindow =
+    loadScore <= 3
+      ? "12-24u: herstelrit of rustige duur mogelijk"
+      : loadScore <= 6
+        ? "24-36u: focus op Z1/Z2 en geen zware intensiteit"
+        : loadScore <= 9
+          ? "36-48u: geen intensiteit, vooral herstel"
+          : "48-72u: actieve recuperatie en extra slaap/voeding";
+
+  const tips = buildIntervalsTips({
+    durationMin,
+    tss,
+    ifValue,
+    avgHr,
+    maxHr,
+    distanceKm,
+    elevationM,
+    avgPower,
+    np,
+    loadScore,
+  });
+
+  return {
+    sourceFile,
+    analyzedAt: new Date().toISOString(),
+    activityName,
+    activityDate,
+    durationMin,
+    distanceKm,
+    elevationM,
+    avgPower,
+    np,
+    avgHr,
+    maxHr,
+    tss,
+    ifValue,
+    loadScore,
+    loadLabel,
+    recoveryWindow,
+    tips,
+  };
 }
 
 function analyzeIntervalsCsv(text, filename) {
@@ -1098,6 +1272,12 @@ function formatActivityDate(rawDate) {
 
 function valueOrDash(v, d = 2) {
   return Number.isFinite(v) ? round(v, d) : "-";
+}
+
+function normalizeBaseUrl(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/\/+$/, "");
 }
 
 function generateWorkout(entry, status) {

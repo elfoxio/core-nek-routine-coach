@@ -1,0 +1,19 @@
+name = "coaching-ai-sync"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+DEFAULT_ATHLETE_ID = "kevin"
+# INTERVALS_API_URL = "https://<intervals-endpoint-for-latest-activity>"
+# INTERVALS_AUTH_HEADER = "Authorization"
+# INTERVALS_AUTH_PREFIX = "Bearer"
+
+# Set as secrets with `wrangler secret put`:
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+# INTERVALS_API_KEY
+# CLIENT_SYNC_TOKEN
+# ADMIN_SYNC_KEY

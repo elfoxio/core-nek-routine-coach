@@ -81,12 +81,27 @@ MVP bevat:
 - Workout export met keuze: Garmin workout (.json) of Zwift (.zwo)
 - Garmin screenshot upload met OCR om metrics automatisch in te lezen
 - Intervals CSV upload met post-workout analyse, tips en hersteladvies
+- Auto Sync optie (backend): Intervals API -> Supabase -> Coaching AI (met geplande sync)
 - Export naar CSV en print/PDF
 
 Belangrijk:
 
 - OCR gebeurt in de browser met Tesseract.js, dus kwaliteit hangt af van screenshot-scherpte en taal.
 - Controleer altijd de ingevulde waarden voor je opslaat.
+- Voor echte automatische Intervals-sync gebruik je de backend in `coaching-ai-sync-backend/`.
+
+## Coaching AI backend (Option 2: automatische Intervals sync)
+
+Backend map:
+
+- `coaching-ai-sync-backend/`
+
+Bevat:
+
+- Cloudflare Worker (`worker.js`) met endpoints voor `latest` en `sync`
+- Uurlijkse cron-sync
+- Supabase SQL setup (`supabase.sql`)
+- Setup stappen (`coaching-ai-sync-backend/README.md`)
 
 ## Publiceren via GitHub Pages
 

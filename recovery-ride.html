@@ -136,6 +136,29 @@
           <section class="intervals-analyzer card-soft">
             <h3>Na-workout analyse (Intervals CSV)</h3>
             <p class="muted">Upload je Intervals-export om belasting, hersteladvies en praktische tips te krijgen.</p>
+            <details class="auto-sync">
+              <summary>Auto Sync via backend (optie 2)</summary>
+              <div class="grid two">
+                <label>
+                  Backend URL
+                  <input id="syncBaseUrlInput" type="url" placeholder="https://coaching-ai-sync.<jouw-domein>.workers.dev" />
+                </label>
+                <label>
+                  Client token
+                  <input id="syncClientTokenInput" type="password" placeholder="client sync token" />
+                </label>
+                <label>
+                  Athlete ID (lokaal label)
+                  <input id="syncAthleteIdInput" type="text" placeholder="kevin" />
+                </label>
+              </div>
+              <div class="actions">
+                <button id="saveSyncSettingsBtn" type="button">Bewaar sync instellingen</button>
+                <button id="syncNowBtn" type="button" class="ghost">Sync nu</button>
+                <button id="disableSyncBtn" type="button" class="ghost">Disable auto sync</button>
+              </div>
+              <p id="syncStatus" class="muted small">Auto sync staat uit.</p>
+            </details>
             <div class="actions">
               <input id="intervalsCsvInput" type="file" accept=".csv,text/csv" />
               <button id="clearIntervalsBtn" type="button" class="ghost">Wis analyse</button>

@@ -301,6 +301,20 @@ textarea {
   margin-top: 12px;
 }
 
+.auto-sync {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fbff;
+  margin: 0 0 10px;
+}
+
+.auto-sync summary {
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
 .advice-list {
   margin: 8px 0 0;
   padding-left: 18px;
