@@ -190,6 +190,18 @@ function mapIntervalsWorkout(raw) {
   const maxHr = toNumber(pick(raw, ["max_hr", "hr_max", "heartrate_max"]));
   const tss = toNumber(pick(raw, ["tss", "icu_training_load", "training_stress", "load"]));
   const ifValue = toNumber(pick(raw, ["if_value", "if", "intensity_factor"]));
+  const sleepHours = toHours(
+    pick(raw, ["sleep_hours", "sleep", "sleep_duration_hours", "sleepDurationHours"]) ??
+      pickNested(raw, [["wellness", "sleep_hours"], ["wellness", "sleep"], ["sleep", "hours"], ["metrics", "sleep_hours"]])
+  );
+  const hrvMs = toNumber(
+    pick(raw, ["hrv_ms", "hrv", "hrv_avg", "heart_rate_variability"]) ??
+      pickNested(raw, [["wellness", "hrv"], ["wellness", "hrv_ms"], ["metrics", "hrv_ms"]])
+  );
+  const rhrBpm = toNumber(
+    pick(raw, ["rhr_bpm", "resting_hr", "resting_heart_rate", "restingHR"]) ??
+      pickNested(raw, [["wellness", "resting_hr"], ["wellness", "rhr"], ["metrics", "resting_hr"]])
+  );
   const workoutId = rawId ? String(rawId) : makeWorkoutId(name, startDate);
 
   return {
@@ -205,6 +217,9 @@ function mapIntervalsWorkout(raw) {
     max_hr: maxHr,
     tss,
     if_value: ifValue,
+    sleep_hours: sleepHours,
+    hrv_ms: hrvMs,
+    rhr_bpm: rhrBpm,
   };
 }
 
@@ -370,9 +385,46 @@ function toKilometers(value) {
   return n;
 }
 
+function toHours(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    return value > 24 ? value / 3600 : value;
+  }
+  const s = String(value).trim().toLowerCase();
+  if (!s) return null;
+  if (s.includes(":")) {
+    const p = s.split(":").map(Number);
+    if (p.some((x) => !Number.isFinite(x))) return null;
+    if (p.length === 3) return p[0] + p[1] / 60 + p[2] / 3600;
+    if (p.length === 2) return p[0] + p[1] / 60;
+  }
+  const n = toNumber(s);
+  if (!Number.isFinite(n)) return null;
+  if (/\b(sec|second|seconds)\b/.test(s)) return n / 3600;
+  if (/\b(min|mins|minute|minutes)\b/.test(s)) return n / 60;
+  return n;
+}
+
 function pick(obj, keys) {
   for (const k of keys) {
     if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] != null && obj[k] !== "") return obj[k];
+  }
+  return null;
+}
+
+function pickNested(obj, paths) {
+  for (const path of paths) {
+    let cur = obj;
+    let ok = true;
+    for (const key of path) {
+      if (!cur || typeof cur !== "object" || !(key in cur)) {
+        ok = false;
+        break;
+      }
+      cur = cur[key];
+    }
+    if (ok && cur != null && cur !== "") return cur;
   }
   return null;
 }
