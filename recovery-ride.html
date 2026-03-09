@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recovery & Ride Coach</title>
+    <link rel="stylesheet" href="recovery-ride.css" />
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+    <script src="recovery-ride.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <p class="back-link"><a href="index.html">← Terug naar home</a></p>
+
+      <section class="hero card">
+        <p class="eyebrow">Recovery & Ride Coach</p>
+        <h1>Dagelijkse herstelcoach voor training, stress en klachten</h1>
+        <p>
+          Combineer Garmin-metrics met je eigen check-in om elke dag duidelijke coaching te krijgen:
+          <strong>groen</strong>, <strong>oranje</strong> of <strong>rood</strong>.
+        </p>
+      </section>
+
+      <section id="loginScreen" class="card screen">
+        <h2>1. Login</h2>
+        <form id="loginForm" class="stack">
+          <label>
+            Naam
+            <input id="nameInput" type="text" required placeholder="Kevin" />
+          </label>
+          <label>
+            E-mail (optioneel)
+            <input id="emailInput" type="email" placeholder="jij@mail.com" />
+          </label>
+          <button type="submit">Start dashboard</button>
+        </form>
+      </section>
+
+      <section id="appScreen" class="screen hidden">
+        <nav class="tabs card">
+          <button type="button" class="tab active" data-tab="checkin">2. Dagelijkse check-in</button>
+          <button type="button" class="tab" data-tab="dashboard">3. Dashboard & trends</button>
+          <button type="button" class="tab" data-tab="coach">4. Coachadvies</button>
+          <button id="logoutBtn" type="button" class="ghost">Uitloggen</button>
+        </nav>
+
+        <section id="tab-checkin" class="card panel active">
+          <h2>Dagelijkse check-in</h2>
+          <p class="muted">Vul manueel in of upload een screenshot van je Garmin dashboard.</p>
+
+          <div class="grid two">
+            <form id="checkinForm" class="stack">
+              <label>
+                Datum
+                <input id="entryDate" type="date" required />
+              </label>
+
+              <div class="grid two">
+                <label>
+                  Slaap (uren)
+                  <input id="sleepInput" type="number" step="0.1" min="0" max="15" placeholder="7.2" />
+                </label>
+                <label>
+                  HRV
+                  <input id="hrvInput" type="number" min="0" max="200" placeholder="58" />
+                </label>
+                <label>
+                  Rusthartslag
+                  <input id="rhrInput" type="number" min="20" max="120" placeholder="51" />
+                </label>
+                <label>
+                  Training load
+                  <input id="loadInput" type="number" min="0" max="2000" placeholder="430" />
+                </label>
+                <label>
+                  Gewicht (kg)
+                  <input id="weightInput" type="number" step="0.1" min="30" max="200" placeholder="74.1" />
+                </label>
+                <label>
+                  Vetpercentage (%)
+                  <input id="fatInput" type="number" step="0.1" min="2" max="60" placeholder="14.9" />
+                </label>
+              </div>
+
+              <div class="slider-grid">
+                <label>Nekpijn <input id="neckInput" type="range" min="0" max="10" value="3" /><span class="val" id="neckVal">3</span></label>
+                <label>Schouderbladpijn <input id="scapulaInput" type="range" min="0" max="10" value="3" /><span class="val" id="scapulaVal">3</span></label>
+                <label>Energie <input id="energyInput" type="range" min="0" max="10" value="6" /><span class="val" id="energyVal">6</span></label>
+                <label>Stress <input id="stressInput" type="range" min="0" max="10" value="4" /><span class="val" id="stressVal">4</span></label>
+                <label>Motivatie <input id="motivationInput" type="range" min="0" max="10" value="6" /><span class="val" id="motivationVal">6</span></label>
+                <label>Darmklachten <input id="giInput" type="range" min="0" max="10" value="1" /><span class="val" id="giVal">1</span></label>
+              </div>
+
+              <label>
+                Notities
+                <textarea id="notesInput" rows="3" placeholder="Werkstress hoog, weinig slaap, nek stijf na bureauwerk..."></textarea>
+              </label>
+
+              <div class="actions">
+                <button type="submit">Opslaan</button>
+                <button id="exportCsvBtn" type="button" class="ghost">Export CSV</button>
+                <button id="exportPdfBtn" type="button" class="ghost">Print/PDF</button>
+              </div>
+            </form>
+
+            <section class="uploader card-soft">
+              <h3>Garmin screenshot upload</h3>
+              <p class="muted">De OCR leest je screenshot en vult velden automatisch in.</p>
+              <input id="screenshotInput" type="file" accept="image/*" />
+              <p id="ocrStatus" class="status">Nog geen screenshot verwerkt.</p>
+              <img id="screenshotPreview" class="preview hidden" alt="Preview Garmin screenshot" />
+              <details>
+                <summary>OCR tekst (debug)</summary>
+                <pre id="ocrRaw"></pre>
+              </details>
+            </section>
+          </div>
+        </section>
+
+        <section id="tab-dashboard" class="card panel">
+          <h2>Dashboard & trends</h2>
+          <div class="status-box" id="todayStatus">Nog geen dagdata.</div>
+          <div id="trendCards" class="grid three"></div>
+
+          <h3>Herstelkalender (laatste 35 dagen)</h3>
+          <div id="calendar" class="calendar"></div>
+
+          <h3>Notities</h3>
+          <ul id="notesList" class="notes"></ul>
+        </section>
+
+        <section id="tab-coach" class="card panel">
+          <h2>Coachadvies van de dag</h2>
+          <div id="coachSummary" class="coach"></div>
+          <button id="refreshCoachBtn" type="button">Advies opnieuw genereren</button>
+          <section class="workout-builder card-soft">
+            <h3>Workout aanmaken</h3>
+            <div class="preset-row" id="workoutPresets">
+              <button type="button" class="preset-btn auto-preset-btn" id="autoPresetBtn">Auto Preset</button>
+              <button type="button" class="ghost preset-btn" data-preset="recovery">Herstel</button>
+              <button type="button" class="ghost preset-btn" data-preset="z2_60">Z2 60</button>
+              <button type="button" class="ghost preset-btn" data-preset="tempo_75">Tempo 75</button>
+              <button type="button" class="ghost preset-btn" data-preset="sweetspot_90">Sweet Spot 90</button>
+            </div>
+            <label class="auto-mode">
+              Auto Preset modus
+              <select id="autoPresetModeInput">
+                <option value="conservative" selected>Conservatief</option>
+                <option value="aggressive">Agressief</option>
+              </select>
+            </label>
+            <div class="grid two">
+              <label>
+                Naam workout
+                <input id="workoutNameInput" type="text" placeholder="Recovery Ride Z2" />
+              </label>
+              <label>
+                Sport
+                <select id="workoutSportInput">
+                  <option value="cycling">Fietsen</option>
+                  <option value="running">Lopen</option>
+                </select>
+              </label>
+              <label>
+                Formaat
+                <select id="workoutFormatInput">
+                  <option value="garmin">Garmin workout (.json)</option>
+                  <option value="zwo">Zwift workout (.zwo)</option>
+                </select>
+              </label>
+              <label>
+                Duur (minuten)
+                <input id="workoutDurationInput" type="number" min="20" max="180" step="5" value="60" />
+              </label>
+              <label>
+                Structuur
+                <select id="workoutStructureInput">
+                  <option value="recovery">Herstel (Z1)</option>
+                  <option value="z2" selected>Duur Z2</option>
+                  <option value="tempo">Tempo</option>
+                  <option value="sweetspot">Sweet spot</option>
+                </select>
+              </label>
+              <label>
+                Warm-up/Cool-down
+                <select id="workoutWarmupInput">
+                  <option value="yes" selected>Ja</option>
+                  <option value="no">Nee</option>
+                </select>
+              </label>
+            </div>
+            <div class="actions">
+              <button id="buildWorkoutBtn" type="button">Genereer workout-bestand</button>
+              <button id="downloadWorkoutBtn" type="button" class="ghost">Download</button>
+            </div>
+            <p id="workoutStatus" class="muted small">Nog geen workout gegenereerd.</p>
+            <pre id="workoutPreview" class="workout-preview"></pre>
+          </section>
+          <p class="muted small">Later uit te breiden met automatische `.zwo` export.</p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

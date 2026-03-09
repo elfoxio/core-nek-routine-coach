@@ -1,0 +1,339 @@
+:root {
+  --bg: #f2f6f5;
+  --card: #ffffff;
+  --line: #d7dfdd;
+  --text: #172327;
+  --muted: #53666d;
+  --accent: #1f5e52;
+  --accent-soft: #e8f3ef;
+  --green: #1d7a52;
+  --orange: #9a6b10;
+  --red: #8f2e2e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 8% 10%, #e2f1eb 0%, transparent 42%),
+    radial-gradient(circle at 92% 0%, #e7eef8 0%, transparent 36%),
+    var(--bg);
+}
+
+.shell {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 26px rgba(15, 32, 37, 0.08);
+}
+
+.card-soft {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fcfefd;
+}
+
+.back-link a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.hero h1 {
+  margin: 8px 0;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 860px;
+}
+
+.screen {
+  margin-top: 12px;
+}
+
+.hidden {
+  display: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tab,
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.tab,
+button {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #173e36;
+}
+
+button.ghost {
+  background: #fff;
+  color: var(--accent);
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.grid.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #1d2b2f;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.slider-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+}
+
+.slider-grid label {
+  align-items: center;
+  grid-template-columns: 1fr auto;
+}
+
+.slider-grid input[type="range"] {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+
+.val {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview {
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.status {
+  font-weight: 700;
+}
+
+.panel {
+  display: none;
+  margin-top: 12px;
+}
+
+.panel.active {
+  display: block;
+}
+
+.status-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.status-green {
+  background: #e9f7f0;
+  color: var(--green);
+  border-color: #b8dfcd;
+}
+
+.status-orange {
+  background: #fff6df;
+  color: var(--orange);
+  border-color: #efd7a0;
+}
+
+.status-red {
+  background: #fdebec;
+  color: var(--red);
+  border-color: #efb9be;
+}
+
+.trend-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.trend-card h4 {
+  margin: 0;
+}
+
+.trend-card p {
+  margin: 4px 0 8px;
+  color: var(--muted);
+}
+
+.spark {
+  width: 100%;
+  height: 120px;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.day {
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  padding: 6px;
+  font-size: 0.82rem;
+}
+
+.day .score {
+  display: block;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.day-green {
+  background: #eef9f4;
+}
+
+.day-orange {
+  background: #fff7e6;
+}
+
+.day-red {
+  background: #ffefef;
+}
+
+.notes {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.coach {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfefd;
+  margin-bottom: 10px;
+}
+
+.coach ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.workout-builder {
+  margin-top: 12px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+
+.preset-btn {
+  border-radius: 999px;
+  padding: 7px 12px;
+}
+
+.auto-mode {
+  max-width: 260px;
+  margin: 0 0 10px;
+}
+
+.workout-preview {
+  margin: 8px 0 0;
+  max-height: 230px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbfa;
+  padding: 10px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .grid.two,
+  .grid.three,
+  .slider-grid {
+    grid-template-columns: 1fr;
+  }
+}
