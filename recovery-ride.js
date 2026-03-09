@@ -269,18 +269,20 @@ async function onScreenshotUpload(event) {
 
   try {
     const source = await preprocessImage(file);
-    const result = await window.Tesseract.recognize(source, "eng", {
-      logger: (msg) => {
-        if (msg.status === "recognizing text") {
-          ocrStatus.textContent = `OCR bezig... ${Math.round((msg.progress || 0) * 100)}%`;
-        }
-      },
-    });
+    const primary = await runOcr(source, "OCR pass 1/2");
+    let rawText = primary?.data?.text || "";
+    let extracted = extractGarminMetrics(rawText);
 
-    const rawText = result?.data?.text || "";
+    // If first pass is too noisy, retry on the original image and merge.
+    if (countExtracted(extracted) < 2) {
+      const secondary = await runOcr(file, "OCR pass 2/2");
+      const fallbackText = secondary?.data?.text || "";
+      const fallbackExtracted = extractGarminMetrics(fallbackText);
+      extracted = mergeExtracted(extracted, fallbackExtracted);
+      rawText = [rawText, "\n\n--- OCR fallback ---\n", fallbackText].join("");
+    }
+
     ocrRaw.textContent = rawText;
-
-    const extracted = extractGarminMetrics(rawText);
     applyExtractedValues(extracted);
 
     const date = entryDate.value || todayISO();
@@ -305,6 +307,31 @@ async function onScreenshotUpload(event) {
   }
 }
 
+async function runOcr(source, label) {
+  return window.Tesseract.recognize(source, "eng", {
+    logger: (msg) => {
+      if (msg.status === "recognizing text") {
+        ocrStatus.textContent = `${label}... ${Math.round((msg.progress || 0) * 100)}%`;
+      }
+    },
+  });
+}
+
+function countExtracted(extracted) {
+  return Object.values(extracted).filter((v) => v != null).length;
+}
+
+function mergeExtracted(primary, fallback) {
+  return {
+    sleep: primary.sleep ?? fallback.sleep ?? null,
+    hrv: primary.hrv ?? fallback.hrv ?? null,
+    rhr: primary.rhr ?? fallback.rhr ?? null,
+    load: primary.load ?? fallback.load ?? null,
+    weight: primary.weight ?? fallback.weight ?? null,
+    fat: primary.fat ?? fallback.fat ?? null,
+  };
+}
+
 function extractGarminMetrics(text) {
   const normalized = text.replace(/,/g, ".").toLowerCase();
   const lines = normalized
@@ -312,7 +339,7 @@ function extractGarminMetrics(text) {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  return {
+  const fromKeywords = {
     sleep: readMetric(lines, ["sleep", "slaap", "slcep"], 2, 15, ["h", "hr", "hour", "uur"]),
     hrv: readMetric(lines, ["hrv", "variability", "variabil"], 10, 200, []),
     rhr: readMetric(lines, ["resting", "rest", "rust", "rhr"], 30, 120, ["bpm"]),
@@ -320,6 +347,16 @@ function extractGarminMetrics(text) {
     weight: readMetric(lines, ["weight", "gewicht", "massa"], 35, 200, ["kg"]),
     fat: readMetric(lines, ["body fat", "fat", "vet", "bodyfat"], 2, 60, ["%", "pct"]),
   };
+
+  // Fallbacks tuned for Garmin dashboard screenshots with noisy OCR.
+  const sleep = fromKeywords.sleep ?? extractSleepHours(normalized);
+  const hrv = fromKeywords.hrv ?? extractUnitNumber(normalized, "ms", 10, 200);
+  const rhr = fromKeywords.rhr ?? extractLikelyRhr(normalized);
+  const weight = fromKeywords.weight ?? extractUnitNumber(normalized, "kg", 35, 200);
+  const fat = fromKeywords.fat ?? extractFatPercent(normalized);
+  const load = fromKeywords.load ?? extractTrainingLoad(normalized);
+
+  return { sleep, hrv, rhr, load, weight, fat };
 }
 
 function readMetric(lines, keywords, min, max, unitsHint) {
@@ -339,6 +376,69 @@ function readMetric(lines, keywords, min, max, unitsHint) {
     }
   }
   return fallback;
+}
+
+function extractUnitNumber(text, unit, min, max) {
+  const re = new RegExp(`(\\d{1,3}(?:\\.\\d+)?)\\s*${unit}\\b`, "g");
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const n = Number(m[1]);
+    if (Number.isFinite(n) && n >= min && n <= max) return n;
+  }
+  return null;
+}
+
+function extractSleepHours(text) {
+  const results = [];
+  const re = /(\d{1,2})\s*h\s*(\d{1,2})\s*m/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (!Number.isFinite(h) || !Number.isFinite(min)) continue;
+    if (h < 2 || h > 14 || min < 0 || min > 59) continue;
+    const hours = h + min / 60;
+    const context = text.slice(Math.max(0, m.index - 28), m.index + 32);
+    const weighted = /sleep|slaap|duration|quality|score/.test(context);
+    results.push({ hours, weighted });
+  }
+  if (!results.length) return null;
+  const preferred = results.find((x) => x.weighted);
+  return preferred ? preferred.hours : results[0].hours;
+}
+
+function extractLikelyRhr(text) {
+  const re = /(\d{2,3}(?:\.\d+)?)\s*bpm\b/g;
+  const candidates = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const n = Number(m[1]);
+    if (Number.isFinite(n) && n >= 30 && n <= 120) candidates.push(n);
+  }
+  if (!candidates.length) return null;
+  const calmRange = candidates.find((n) => n >= 42 && n <= 75);
+  return calmRange ?? candidates[0];
+}
+
+function extractFatPercent(text) {
+  // Prefer percent values near fat-related words.
+  const keywordRe = /(fat|vet|body\s*fat)[^\n\r]{0,24}?(\d{1,2}(?:\.\d+)?)\s*%/i;
+  const kw = text.match(keywordRe);
+  if (kw) {
+    const n = Number(kw[2]);
+    if (Number.isFinite(n) && n >= 2 && n <= 60) return n;
+  }
+  const generic = extractUnitNumber(text, "%", 2, 60);
+  return generic;
+}
+
+function extractTrainingLoad(text) {
+  // Numeric load if present. Many Garmin overviews only show "Low/High" without a number.
+  const re = /(training\s*load|load|belasting)[^\n\r]{0,30}?(\d{2,4}(?:\.\d+)?)/i;
+  const m = text.match(re);
+  if (!m) return null;
+  const n = Number(m[2]);
+  return Number.isFinite(n) && n >= 10 && n <= 2000 ? n : null;
 }
 
 function applyExtractedValues(extracted) {
