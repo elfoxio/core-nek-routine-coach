@@ -11,10 +11,8 @@ const logoutBtn = document.getElementById("logoutBtn");
 
 const checkinForm = document.getElementById("checkinForm");
 const entryDate = document.getElementById("entryDate");
-const screenshotInput = document.getElementById("screenshotInput");
-const screenshotPreview = document.getElementById("screenshotPreview");
-const ocrStatus = document.getElementById("ocrStatus");
-const ocrRaw = document.getElementById("ocrRaw");
+const fillFromIntervalsBtn = document.getElementById("fillFromIntervalsBtn");
+const checkinStatus = document.getElementById("checkinStatus");
 
 const todayStatus = document.getElementById("todayStatus");
 const trendCards = document.getElementById("trendCards");
@@ -93,7 +91,7 @@ for (const [sliderId, labelId] of sliderMirrors) {
 loginForm.addEventListener("submit", onLogin);
 logoutBtn.addEventListener("click", onLogout);
 checkinForm.addEventListener("submit", onSaveCheckin);
-screenshotInput.addEventListener("change", onScreenshotUpload);
+fillFromIntervalsBtn.addEventListener("click", onFillFromIntervalsClick);
 refreshCoachBtn.addEventListener("click", renderCoachAdvice);
 exportCsvBtn.addEventListener("click", exportCsv);
 exportPdfBtn.addEventListener("click", printSummary);
@@ -239,12 +237,12 @@ function onSaveCheckin(event) {
     notes: fields.notes.value.trim(),
     updatedAt: new Date().toISOString(),
     source: existing.source || "manual",
-    ocrRaw: existing.ocrRaw || "",
   };
 
   saveState();
   renderDashboard();
   renderCoachAdvice();
+  checkinStatus.textContent = "Check-in opgeslagen.";
 }
 
 function loadEntryIntoForm(date) {
@@ -289,273 +287,32 @@ function refreshSliderLabels() {
   }
 }
 
-async function onScreenshotUpload(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  screenshotPreview.src = URL.createObjectURL(file);
-  screenshotPreview.classList.remove("hidden");
-
-  if (!window.Tesseract) {
-    ocrStatus.textContent = "OCR library niet beschikbaar. Vul velden manueel in.";
-    return;
-  }
-
-  ocrStatus.textContent = "OCR bezig...";
-
+async function onFillFromIntervalsClick() {
   try {
-    const source = await preprocessImage(file);
-    const primary = await runOcr(source, "OCR pass 1/2");
-    let rawText = primary?.data?.text || "";
-    let extracted = extractGarminMetrics(rawText);
-
-    // If first pass is too noisy, retry on the original image and merge.
-    if (countExtracted(extracted) < 2) {
-      const secondary = await runOcr(file, "OCR pass 2/2");
-      const fallbackText = secondary?.data?.text || "";
-      const fallbackExtracted = extractGarminMetrics(fallbackText);
-      extracted = mergeExtracted(extracted, fallbackExtracted);
-      rawText = [rawText, "\n\n--- OCR fallback ---\n", fallbackText].join("");
+    if (state.syncConfig?.enabled) {
+      checkinStatus.textContent = "Intervals sync verversen...";
+      await syncFromBackend({ triggerRemoteSync: true });
+    }
+    const a = state.intervalsAnalysis;
+    if (!a) {
+      checkinStatus.textContent = "Geen Intervals analyse beschikbaar. Doe eerst Sync nu in Coachadvies.";
+      return;
     }
 
-    // Final fallback: focus on the lower dashboard zone where Weight/HRV/RHR tiles usually are.
-    if (countExtracted(extracted) < 3) {
-      const lowerRegion = await preprocessImage(file, { cropBottomRatio: 0.42, scale: 2.2, highContrast: true });
-      const focused = await runOcr(lowerRegion, "OCR pass 3/3", {
-        tessedit_pageseg_mode: "6",
-        tessedit_char_whitelist: "0123456789.%kgbpmhmsKGHBPMMSabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:-/ ",
-      });
-      const focusedText = focused?.data?.text || "";
-      const focusedExtracted = extractGarminMetrics(focusedText);
-      extracted = mergeExtracted(extracted, focusedExtracted);
-      rawText = [rawText, "\n\n--- OCR focused lower region ---\n", focusedText].join("");
-    }
-
-    ocrRaw.textContent = rawText;
-    applyExtractedValues(extracted);
-
-    const date = entryDate.value || todayISO();
-    const prev = state.entries[date] || { date, metrics: {}, subjective: {} };
-    state.entries[date] = {
-      ...prev,
-      source: "garmin-screenshot",
-      ocrRaw: rawText,
-      updatedAt: new Date().toISOString(),
-    };
-    saveState();
-
-    const keys = Object.entries(extracted)
-      .filter(([, value]) => value != null)
-      .map(([key]) => key);
-    ocrStatus.textContent = keys.length
-      ? `OCR klaar. Gevonden: ${keys.join(", ")}. Controleer en klik daarna op Opslaan.`
-      : "OCR klaar, maar geen betrouwbare Garmin-waarden gevonden. Controleer manueel.";
+    if (Number.isFinite(a.tss)) fields.load.value = Math.round(a.tss);
+    const noteParts = [];
+    noteParts.push(`Intervals: ${a.activityName || "Workout"} (${a.activityDate || "-"})`);
+    if (Number.isFinite(a.durationMin)) noteParts.push(`duur ${round(a.durationMin, 1)} min`);
+    if (Number.isFinite(a.ifValue)) noteParts.push(`IF ${round(a.ifValue, 2)}`);
+    if (Number.isFinite(a.avgHr)) noteParts.push(`avg HR ${round(a.avgHr, 0)} bpm`);
+    if (Number.isFinite(a.np)) noteParts.push(`NP ${round(a.np, 0)} W`);
+    const line = noteParts.join(" | ");
+    fields.notes.value = fields.notes.value ? `${fields.notes.value}\n${line}` : line;
+    checkinStatus.textContent = "Check-in velden aangevuld vanuit Intervals. Controleer en klik Opslaan.";
   } catch (err) {
     console.error(err);
-    ocrStatus.textContent = "OCR mislukt. Controleer het screenshot of vul manueel in.";
+    checkinStatus.textContent = `Intervals invullen mislukt: ${err.message || "onbekende fout"}`;
   }
-}
-
-async function runOcr(source, label, extraOptions = {}) {
-  return window.Tesseract.recognize(source, "eng", {
-    ...extraOptions,
-    logger: (msg) => {
-      if (msg.status === "recognizing text") {
-        ocrStatus.textContent = `${label}... ${Math.round((msg.progress || 0) * 100)}%`;
-      }
-    },
-  });
-}
-
-function countExtracted(extracted) {
-  return Object.values(extracted).filter((v) => v != null).length;
-}
-
-function mergeExtracted(primary, fallback) {
-  return {
-    sleep: primary.sleep ?? fallback.sleep ?? null,
-    hrv: primary.hrv ?? fallback.hrv ?? null,
-    rhr: primary.rhr ?? fallback.rhr ?? null,
-    load: primary.load ?? fallback.load ?? null,
-    weight: primary.weight ?? fallback.weight ?? null,
-    fat: primary.fat ?? fallback.fat ?? null,
-  };
-}
-
-function extractGarminMetrics(text) {
-  const normalized = text.replace(/,/g, ".").toLowerCase();
-  const lines = normalized
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const fromKeywords = {
-    sleep: readMetric(lines, ["sleep", "slaap", "slcep"], 2, 15, ["h", "hr", "hour", "uur"]),
-    hrv: readMetric(lines, ["hrv", "variability", "variabil"], 10, 200, []),
-    rhr: readMetric(lines, ["resting", "rest", "rust", "rhr"], 30, 120, ["bpm"]),
-    load: readMetric(lines, ["training load", "load", "belasting"], 10, 2000, []),
-    weight: readMetric(lines, ["weight", "gewicht", "massa"], 35, 200, ["kg"]),
-    fat: readMetric(lines, ["body fat", "fat", "vet", "bodyfat"], 2, 60, ["%", "pct"]),
-  };
-
-  // Fallbacks tuned for Garmin dashboard screenshots with noisy OCR.
-  const sleep = fromKeywords.sleep ?? extractSleepHours(normalized);
-  const hrv = fromKeywords.hrv ?? extractUnitNumber(normalized, "ms", 10, 200);
-  const rhr = fromKeywords.rhr ?? extractLikelyRhr(normalized);
-  const weight = fromKeywords.weight ?? extractUnitNumber(normalized, "kg", 35, 200);
-  const fat = fromKeywords.fat ?? extractFatPercent(normalized);
-  const load = fromKeywords.load ?? extractTrainingLoad(normalized);
-
-  return { sleep, hrv, rhr, load, weight, fat };
-}
-
-function readMetric(lines, keywords, min, max, unitsHint) {
-  let fallback = null;
-  for (const line of lines) {
-    if (!keywords.some((k) => line.includes(k))) continue;
-    const matches = line.match(/\d+(?:\.\d+)?/g);
-    if (!matches) continue;
-    const hasUnitHint = unitsHint.length ? unitsHint.some((u) => line.includes(u)) : false;
-
-    for (const m of matches) {
-      const n = Number(m);
-      if (Number.isFinite(n) && n >= min && n <= max) {
-        if (hasUnitHint || unitsHint.length === 0) return n;
-        if (fallback == null) fallback = n;
-      }
-    }
-  }
-  return fallback;
-}
-
-function extractUnitNumber(text, unit, min, max) {
-  const re = new RegExp(`(\\d{1,3}(?:\\.\\d+)?)\\s*${unit}\\b`, "g");
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const n = Number(m[1]);
-    if (Number.isFinite(n) && n >= min && n <= max) return n;
-  }
-  return null;
-}
-
-function extractSleepHours(text) {
-  const results = [];
-  const re = /(\d{1,2})\s*h\s*(\d{1,2})\s*m/g;
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const h = Number(m[1]);
-    const min = Number(m[2]);
-    if (!Number.isFinite(h) || !Number.isFinite(min)) continue;
-    if (h < 2 || h > 14 || min < 0 || min > 59) continue;
-    const hours = h + min / 60;
-    const context = text.slice(Math.max(0, m.index - 28), m.index + 32);
-    const weighted = /sleep|slaap|duration|quality|score/.test(context);
-    results.push({ hours, weighted });
-  }
-  if (!results.length) return null;
-  const preferred = results.find((x) => x.weighted);
-  return preferred ? preferred.hours : results[0].hours;
-}
-
-function extractLikelyRhr(text) {
-  const re = /(\d{2,3}(?:\.\d+)?)\s*bpm\b/g;
-  const candidates = [];
-  let m;
-  while ((m = re.exec(text)) !== null) {
-    const n = Number(m[1]);
-    if (Number.isFinite(n) && n >= 30 && n <= 120) candidates.push(n);
-  }
-  if (!candidates.length) return null;
-  const calmRange = candidates.find((n) => n >= 42 && n <= 75);
-  return calmRange ?? candidates[0];
-}
-
-function extractFatPercent(text) {
-  // Prefer percent values near fat-related words.
-  const keywordRe = /(fat|vet|body\s*fat)[^\n\r]{0,24}?(\d{1,2}(?:\.\d+)?)\s*%/i;
-  const kw = text.match(keywordRe);
-  if (kw) {
-    const n = Number(kw[2]);
-    if (Number.isFinite(n) && n >= 2 && n <= 60) return n;
-  }
-  const generic = extractUnitNumber(text, "%", 2, 60);
-  return generic;
-}
-
-function extractTrainingLoad(text) {
-  // Numeric load if present. Many Garmin overviews only show "Low/High" without a number.
-  const re = /(training\s*load|load|belasting)[^\n\r]{0,30}?(\d{2,4}(?:\.\d+)?)/i;
-  const m = text.match(re);
-  if (!m) return null;
-  const n = Number(m[2]);
-  return Number.isFinite(n) && n >= 10 && n <= 2000 ? n : null;
-}
-
-function applyExtractedValues(extracted) {
-  if (extracted.sleep != null) fields.sleep.value = extracted.sleep;
-  if (extracted.hrv != null) fields.hrv.value = extracted.hrv;
-  if (extracted.rhr != null) fields.rhr.value = extracted.rhr;
-  if (extracted.load != null) fields.load.value = extracted.load;
-  if (extracted.weight != null) fields.weight.value = extracted.weight;
-  if (extracted.fat != null) fields.fat.value = extracted.fat;
-}
-
-async function preprocessImage(file, options = {}) {
-  try {
-    const img = await fileToImage(file);
-    const canvas = document.createElement("canvas");
-    const cropBottomRatio = Number.isFinite(options.cropBottomRatio) ? options.cropBottomRatio : 0;
-    const safeRatio = Math.max(0, Math.min(0.9, cropBottomRatio));
-    const cropY = Math.round(img.height * (1 - safeRatio));
-    const srcY = safeRatio > 0 ? cropY : 0;
-    const srcH = safeRatio > 0 ? Math.max(1, img.height - cropY) : img.height;
-
-    const targetScale = Number.isFinite(options.scale) ? options.scale : Math.max(1.6, 1800 / Math.max(1, img.width));
-    const scale = Math.max(1, targetScale);
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(srcH * scale);
-
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.drawImage(img, 0, srcY, img.width, srcH, 0, 0, canvas.width, canvas.height);
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    const highContrast = options.highContrast !== false;
-
-    if (highContrast) {
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-        const boosted = luma > 152 ? 255 : luma < 88 ? 0 : Math.round(luma * 1.1);
-        data[i] = boosted;
-        data[i + 1] = boosted;
-        data[i + 2] = boosted;
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    return canvas;
-  } catch {
-    return file;
-  }
-}
-
-function fileToImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("image load failed"));
-    };
-    img.src = url;
-  });
 }
 
 function getSortedEntries() {

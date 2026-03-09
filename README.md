@@ -79,7 +79,7 @@ MVP bevat:
 - Dashboard met status (groen/oranje/rood), trends en herstelkalender
 - Coachadvies pagina met workout generator
 - Workout export met keuze: Garmin workout (.json) of Zwift (.zwo)
-- Garmin screenshot upload met OCR om metrics automatisch in te lezen
+- Dagelijkse check-in kan automatisch aangevuld worden vanuit Intervals sync
 - Intervals CSV upload met post-workout analyse, tips en hersteladvies
 - Auto Sync optie (backend): Intervals API -> Supabase -> Coaching AI (met geplande sync)
 - Export naar CSV en print/PDF

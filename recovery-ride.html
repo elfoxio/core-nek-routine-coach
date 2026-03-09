@@ -4,9 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Recovery & Ride Coach</title>
-    <link rel="stylesheet" href="recovery-ride.css?v=20260309-2" />
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
-    <script src="recovery-ride.js?v=20260309-2" defer></script>
+    <link rel="stylesheet" href="recovery-ride.css?v=20260309-3" />
+    <script src="recovery-ride.js?v=20260309-3" defer></script>
   </head>
   <body>
     <main class="shell">
@@ -46,7 +45,7 @@
 
         <section id="tab-checkin" class="card panel active">
           <h2>Dagelijkse check-in</h2>
-          <p class="muted">Vul manueel in of upload een screenshot van je Garmin dashboard.</p>
+          <p class="muted">Vul manueel in of trek je data binnen via Intervals-sync.</p>
 
           <div class="grid two">
             <form id="checkinForm" class="stack">
@@ -98,21 +97,20 @@
 
               <div class="actions">
                 <button type="submit">Opslaan</button>
+                <button id="fillFromIntervalsBtn" type="button" class="ghost">Vul vanuit Intervals</button>
                 <button id="exportCsvBtn" type="button" class="ghost">Export CSV</button>
                 <button id="exportPdfBtn" type="button" class="ghost">Print/PDF</button>
               </div>
+              <p id="checkinStatus" class="muted small">Nog geen Intervals data ingeladen voor check-in.</p>
             </form>
 
-            <section class="uploader card-soft">
-              <h3>Garmin screenshot upload</h3>
-              <p class="muted">De OCR leest je screenshot en vult velden automatisch in.</p>
-              <input id="screenshotInput" type="file" accept="image/*" />
-              <p id="ocrStatus" class="status">Nog geen screenshot verwerkt.</p>
-              <img id="screenshotPreview" class="preview hidden" alt="Preview Garmin screenshot" />
-              <details>
-                <summary>OCR tekst (debug)</summary>
-                <pre id="ocrRaw"></pre>
-              </details>
+            <section class="card-soft">
+              <h3>Intervals voor check-in</h3>
+              <p class="muted">Gebruik eerst Auto Sync in Coachadvies en klik daarna op <strong>Vul vanuit Intervals</strong>.</p>
+              <ul class="advice-list">
+                <li>Haalt o.a. training load (TSS), notitiecontext en recente sessie-info op.</li>
+                <li>Slaap/HRV/RHR blijven handmatig of via andere databron.</li>
+              </ul>
             </section>
           </div>
         </section>
