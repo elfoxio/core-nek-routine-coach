@@ -126,8 +126,9 @@ async function runBackfill(env, athleteId, days) {
 }
 
 async function fetchIntervalsLatest(env) {
-  const items = await fetchIntervalsList(env, { limit: 1 });
-  return items[0] || null;
+  const items = await fetchIntervalsList(env, { limit: 60, oldest: isoDateDaysAgo(45) });
+  if (!Array.isArray(items) || !items.length) return null;
+  return pickLatestActivity(items);
 }
 
 async function fetchIntervalsRange(env, days) {
@@ -139,9 +140,9 @@ async function fetchIntervalsRange(env, days) {
 async function fetchIntervalsWellnessLatest(env) {
   const endpoint = env.INTERVALS_WELLNESS_API_URL;
   if (!endpoint) return null;
-  const items = await fetchIntervalsListFromEndpoint(env, endpoint, { limit: 7 });
+  const items = await fetchIntervalsListFromEndpoint(env, endpoint, { limit: 90, oldest: isoDateDaysAgo(45) });
   if (!Array.isArray(items) || !items.length) return null;
-  return pickLatestWellnessWithData(items);
+  return mergeLatestWellnessMetrics(items);
 }
 
 async function fetchIntervalsList(env, opts = {}) {
@@ -512,6 +513,53 @@ function pickLatestWellnessWithData(items) {
     Number.isFinite(toNumber(row?.weight ?? row?.weight_kg)) ||
     Number.isFinite(toPercent(row?.bodyFat ?? row?.body_fat));
   return sorted.find(hasMetrics) || sorted[0] || null;
+}
+
+function mergeLatestWellnessMetrics(items) {
+  const sorted = items
+    .slice()
+    .sort((a, b) => String(b?.id || b?.updated || "").localeCompare(String(a?.id || a?.updated || "")));
+  const base = pickLatestWellnessWithData(sorted);
+  if (!base) return null;
+
+  const firstFinite = (getter) => {
+    for (const row of sorted) {
+      const value = getter(row);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+
+  const merged = { ...base };
+  merged.sleepSecs = Number.isFinite(toHours(base.sleepSecs ?? base.sleep ?? base.sleep_hours))
+    ? base.sleepSecs ?? base.sleep ?? base.sleep_hours
+    : firstFinite((row) => toHours(row?.sleepSecs ?? row?.sleep ?? row?.sleep_hours));
+  merged.hrv = Number.isFinite(toNumber(base.hrv ?? base.hrv_ms))
+    ? base.hrv ?? base.hrv_ms
+    : firstFinite((row) => toNumber(row?.hrv ?? row?.hrv_ms));
+  merged.restingHR = Number.isFinite(toNumber(base.restingHR ?? base.resting_hr))
+    ? base.restingHR ?? base.resting_hr
+    : firstFinite((row) => toNumber(row?.restingHR ?? row?.resting_hr));
+  merged.weight = Number.isFinite(toNumber(base.weight ?? base.weight_kg))
+    ? base.weight ?? base.weight_kg
+    : firstFinite((row) => toNumber(row?.weight ?? row?.weight_kg));
+  merged.bodyFat = Number.isFinite(toPercent(base.bodyFat ?? base.body_fat))
+    ? base.bodyFat ?? base.body_fat
+    : firstFinite((row) => toPercent(row?.bodyFat ?? row?.body_fat));
+
+  return merged;
+}
+
+function pickLatestActivity(items) {
+  const getTs = (row) => {
+    const raw = row?.start_date || row?.start_date_local || row?.date || row?.updated || row?.id;
+    if (raw == null) return 0;
+    const t = Date.parse(String(raw));
+    if (Number.isFinite(t)) return t;
+    const n = toNumber(raw);
+    return Number.isFinite(n) ? n : 0;
+  };
+  return items.slice().sort((a, b) => getTs(b) - getTs(a))[0] || null;
 }
 
 function flattenObject(input, prefix = "", out = []) {

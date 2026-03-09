@@ -439,6 +439,135 @@ function getSortedEntries() {
   return Object.values(state.entries).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function getMergedDashboardEntries() {
+  const mergedByDate = {};
+  const historyByDate = buildHistoryMetricsByDate(state.intervalsHistory);
+
+  for (const [date, metrics] of Object.entries(historyByDate)) {
+    mergedByDate[date] = {
+      date,
+      metrics: {
+        sleep: metrics.sleep,
+        hrv: metrics.hrv,
+        rhr: metrics.rhr,
+        load: metrics.load,
+        weight: metrics.weight,
+        fat: metrics.fat,
+      },
+      subjective: {
+        neck: 3,
+        scapula: 3,
+        energy: 6,
+        stress: 4,
+        motivation: 6,
+        gi: 1,
+      },
+      notes: "",
+      source: "intervals-history",
+    };
+  }
+
+  for (const entry of getSortedEntries()) {
+    const existing = mergedByDate[entry.date];
+    mergedByDate[entry.date] = {
+      ...existing,
+      ...entry,
+      metrics: {
+        ...((existing && existing.metrics) || {}),
+        ...((entry && entry.metrics) || {}),
+      },
+      subjective: {
+        ...((existing && existing.subjective) || {}),
+        ...((entry && entry.subjective) || {}),
+      },
+      notes: entry.notes ?? (existing?.notes || ""),
+      source: entry.source || "manual",
+    };
+  }
+
+  return Object.values(mergedByDate).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildHistoryMetricsByDate(history) {
+  if (!Array.isArray(history) || !history.length) return {};
+  const rows = history
+    .slice()
+    .sort((a, b) => extractHistoryTimestamp(a) - extractHistoryTimestamp(b));
+  const out = {};
+
+  for (const row of rows) {
+    const date = extractHistoryDate(row);
+    if (!date) continue;
+    const w = row?.workout || {};
+    const bucket = out[date] || { sleep: null, hrv: null, rhr: null, load: null, weight: null, fat: null };
+
+    const sleep = toNum(w.sleep_hours);
+    const hrv = toNum(w.hrv_ms);
+    const rhr = toNum(w.rhr_bpm);
+    const weight = toNum(w.weight_kg);
+    const fat = toNum(w.body_fat_pct);
+    const tss = toNum(w.tss);
+    const altLoad = toNum(w.atl_load) ?? toNum(w.ctl_load);
+
+    if (Number.isFinite(sleep) && sleep > 0) bucket.sleep = sleep;
+    if (Number.isFinite(hrv) && hrv > 0) bucket.hrv = hrv;
+    if (Number.isFinite(rhr) && rhr > 0) bucket.rhr = rhr;
+    if (Number.isFinite(weight) && weight > 0) bucket.weight = weight;
+    if (Number.isFinite(fat) && fat > 0) bucket.fat = fat;
+
+    if (Number.isFinite(tss) && tss > 0) {
+      bucket.load = Number.isFinite(bucket.load) ? bucket.load + tss : tss;
+    } else if (!Number.isFinite(bucket.load) && Number.isFinite(altLoad) && altLoad > 0) {
+      bucket.load = altLoad;
+    }
+
+    out[date] = bucket;
+  }
+
+  return out;
+}
+
+function extractHistoryDate(row) {
+  const candidates = [
+    row?.workout_date,
+    row?.workout?.start_date,
+    row?.workout?.start_date_local,
+    row?.synced_at,
+  ];
+  for (const raw of candidates) {
+    const day = toIsoDay(raw);
+    if (day) return day;
+  }
+  return "";
+}
+
+function extractHistoryTimestamp(row) {
+  const candidates = [
+    row?.workout?.start_date,
+    row?.workout?.start_date_local,
+    row?.workout_date,
+    row?.synced_at,
+  ];
+  for (const raw of candidates) {
+    const t = Date.parse(String(raw || ""));
+    if (Number.isFinite(t)) return t;
+  }
+  return 0;
+}
+
+function toIsoDay(raw) {
+  if (!raw) return "";
+  const s = String(raw);
+  const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+  if (m) return m[0];
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return "";
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
 function computeStatus(entry) {
   if (!entry) return { color: "orange", label: "Nog geen data", score: 0 };
 
@@ -472,7 +601,7 @@ function computeStatus(entry) {
 }
 
 function renderDashboard() {
-  const entries = getSortedEntries();
+  const entries = getMergedDashboardEntries();
   const latest = entries[entries.length - 1];
   const status = computeStatus(latest);
 
@@ -489,6 +618,7 @@ function renderDashboard() {
 
 function renderTrendCards(entries) {
   const defs = [
+    ["sleep", "Slaap"],
     ["hrv", "HRV"],
     ["rhr", "Rusthartslag"],
     ["weight", "Gewicht"],
@@ -812,6 +942,7 @@ async function fetchHistoryFromBackend(days) {
     state.intervalsHistory = Array.isArray(payload.workouts) ? payload.workouts : [];
     saveState();
     renderIntervalsHistory();
+    renderDashboard();
     intervalsHistoryStatus.textContent = `Historiek geladen: ${state.intervalsHistory.length} workouts (${days} dagen).`;
   } catch (err) {
     console.error(err);
