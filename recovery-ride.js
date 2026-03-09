@@ -305,15 +305,21 @@ async function onFillFromIntervalsClick() {
     const sleepFromIntervals = estimateSleepFromIntervals(a, state.intervalsHistory);
     const hrvFromIntervals = estimateHrvFromIntervals(a, state.intervalsHistory);
     const rhrFromIntervals = estimateRhrFromIntervals(a, state.intervalsHistory);
+    const weightFromIntervals = estimateWeightFromIntervals(a, state.intervalsHistory);
+    const fatFromIntervals = estimateFatFromIntervals(a, state.intervalsHistory);
     if (Number.isFinite(sleepFromIntervals)) fields.sleep.value = round(sleepFromIntervals, 2);
     if (Number.isFinite(hrvFromIntervals)) fields.hrv.value = Math.round(hrvFromIntervals);
     if (Number.isFinite(rhrFromIntervals)) fields.rhr.value = Math.round(rhrFromIntervals);
+    if (Number.isFinite(weightFromIntervals)) fields.weight.value = round(weightFromIntervals, 1);
+    if (Number.isFinite(fatFromIntervals)) fields.fat.value = round(fatFromIntervals, 1);
     if (Number.isFinite(loadFromIntervals)) fields.load.value = Math.round(loadFromIntervals);
     const noteParts = [];
     noteParts.push(`Intervals: ${a.activityName || "Workout"} (${a.activityDate || "-"})`);
     if (Number.isFinite(sleepFromIntervals)) noteParts.push(`slaap ${round(sleepFromIntervals, 2)}u`);
     if (Number.isFinite(hrvFromIntervals)) noteParts.push(`HRV ${round(hrvFromIntervals, 0)}ms`);
     if (Number.isFinite(rhrFromIntervals)) noteParts.push(`RHR ${round(rhrFromIntervals, 0)}bpm`);
+    if (Number.isFinite(weightFromIntervals)) noteParts.push(`gewicht ${round(weightFromIntervals, 1)}kg`);
+    if (Number.isFinite(fatFromIntervals)) noteParts.push(`vet ${round(fatFromIntervals, 1)}%`);
     if (Number.isFinite(a.durationMin)) noteParts.push(`duur ${round(a.durationMin, 1)} min`);
     if (Number.isFinite(a.ifValue)) noteParts.push(`IF ${round(a.ifValue, 2)}`);
     if (Number.isFinite(loadFromIntervals)) noteParts.push(`load ${round(loadFromIntervals, 0)}`);
@@ -388,6 +394,24 @@ function estimateRhrFromIntervals(analysis, history) {
   if (Number.isFinite(direct) && direct > 0) return direct;
   const latestHistory = getLatestHistoryWorkout(history);
   const hist = toNum(latestHistory?.workout?.rhr_bpm);
+  if (Number.isFinite(hist) && hist > 0) return hist;
+  return null;
+}
+
+function estimateWeightFromIntervals(analysis, history) {
+  const direct = toNum(analysis?.weightKg);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const latestHistory = getLatestHistoryWorkout(history);
+  const hist = toNum(latestHistory?.workout?.weight_kg);
+  if (Number.isFinite(hist) && hist > 0) return hist;
+  return null;
+}
+
+function estimateFatFromIntervals(analysis, history) {
+  const direct = toNum(analysis?.bodyFatPct);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const latestHistory = getLatestHistoryWorkout(history);
+  const hist = toNum(latestHistory?.workout?.body_fat_pct);
   if (Number.isFinite(hist) && hist > 0) return hist;
   return null;
 }
@@ -797,7 +821,7 @@ function renderIntervalsAnalysis() {
     <p><strong>Bronbestand:</strong> ${escapeHtml(a.sourceFile || "-")}</p>
     <p><strong>Belasting:</strong> ${a.loadLabel} (score ${round(a.loadScore, 1)})</p>
     <p><strong>Hersteladvies:</strong> ${a.recoveryWindow}</p>
-    <p><strong>Kerncijfers:</strong> duur ${a.durationMin ? `${round(a.durationMin, 1)} min` : "-"}, TSS ${valueOrDash(a.tss)}, IF ${valueOrDash(a.ifValue)}, NP ${valueOrDash(a.np)} W, avg HR ${valueOrDash(a.avgHr)} bpm, slaap ${valueOrDash(a.sleepHours)} u, HRV ${valueOrDash(a.hrvMs)} ms, RHR ${valueOrDash(a.rhrBpm)} bpm</p>
+    <p><strong>Kerncijfers:</strong> duur ${a.durationMin ? `${round(a.durationMin, 1)} min` : "-"}, TSS ${valueOrDash(a.tss)}, IF ${valueOrDash(a.ifValue)}, NP ${valueOrDash(a.np)} W, avg HR ${valueOrDash(a.avgHr)} bpm, slaap ${valueOrDash(a.sleepHours)} u, HRV ${valueOrDash(a.hrvMs)} ms, RHR ${valueOrDash(a.rhrBpm)} bpm, gewicht ${valueOrDash(a.weightKg)} kg, vet ${valueOrDash(a.bodyFatPct)} %</p>
   `;
 
   intervalsTips.innerHTML = a.tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
@@ -865,6 +889,8 @@ function analyzeIntervalsWorkoutObject(workout, sourceFile) {
   const sleepHours = parseSmartNumber(workout.sleep_hours);
   const hrvMs = parseSmartNumber(workout.hrv_ms);
   const rhrBpm = parseSmartNumber(workout.rhr_bpm);
+  const weightKg = parseSmartNumber(workout.weight_kg);
+  const bodyFatPct = parseSmartNumber(workout.body_fat_pct);
   const activityName = workout.name || workout.activity_name || "Intervals workout";
   const activityDate = formatActivityDate(workout.start_date || workout.date || workout.synced_at);
 
@@ -909,6 +935,8 @@ function analyzeIntervalsWorkoutObject(workout, sourceFile) {
     sleepHours,
     hrvMs,
     rhrBpm,
+    weightKg,
+    bodyFatPct,
     loadScore,
     loadLabel,
     recoveryWindow,

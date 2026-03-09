@@ -202,6 +202,14 @@ function mapIntervalsWorkout(raw) {
     pick(raw, ["rhr_bpm", "resting_hr", "resting_heart_rate", "restingHR"]) ??
       pickNested(raw, [["wellness", "resting_hr"], ["wellness", "rhr"], ["metrics", "resting_hr"]])
   );
+  const weightKg = toNumber(
+    pick(raw, ["weight_kg", "weight", "body_weight", "mass"]) ??
+      pickNested(raw, [["wellness", "weight_kg"], ["wellness", "weight"], ["metrics", "weight_kg"]])
+  );
+  const bodyFatPct = toNumber(
+    pick(raw, ["body_fat_pct", "body_fat", "fat_pct", "bodyfat"]) ??
+      pickNested(raw, [["wellness", "body_fat_pct"], ["wellness", "body_fat"], ["metrics", "body_fat_pct"]])
+  );
   const workoutId = rawId ? String(rawId) : makeWorkoutId(name, startDate);
 
   return {
@@ -220,6 +228,8 @@ function mapIntervalsWorkout(raw) {
     sleep_hours: sleepHours,
     hrv_ms: hrvMs,
     rhr_bpm: rhrBpm,
+    weight_kg: weightKg,
+    body_fat_pct: bodyFatPct,
   };
 }
 
