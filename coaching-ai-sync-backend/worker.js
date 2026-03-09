@@ -228,6 +228,14 @@ function mapIntervalsWorkout(raw, wellnessRaw) {
     rhrBpm = rhrBpm ?? toNumber(pick(wellnessRaw, ["resting_hr", "rhr", "resting_heart_rate"]));
     weightKg = weightKg ?? toNumber(pick(wellnessRaw, ["weight", "weight_kg", "body_weight"]));
     bodyFatPct = bodyFatPct ?? toPercent(pick(wellnessRaw, ["body_fat", "body_fat_pct", "fat_pct"]));
+
+    // Broad fallback for custom-labeled wellness keys (e.g. "HRV (rMSSD)", "Sleep", "Resting HR").
+    const flat = flattenObject(wellnessRaw);
+    sleepHours = sleepHours ?? extractFirstHoursByKey(flat, [/sleep/]);
+    hrvMs = hrvMs ?? extractFirstNumberByKey(flat, [/hrv/, /rmssd/], { min: 5, max: 300 });
+    rhrBpm = rhrBpm ?? extractFirstNumberByKey(flat, [/resting.*hr/, /\brhr\b/], { min: 25, max: 120 });
+    weightKg = weightKg ?? extractFirstNumberByKey(flat, [/weight/, /body.*weight/], { min: 30, max: 250 });
+    bodyFatPct = bodyFatPct ?? extractFirstNumberByKey(flat, [/body.*fat/, /\bfat\b/], { min: 2, max: 70 });
   }
   const workoutId = rawId ? String(rawId) : makeWorkoutId(name, startDate);
 
@@ -486,6 +494,44 @@ function withIntervalsQuery(endpoint, opts) {
   if (opts.oldest) url.searchParams.set("oldest", String(opts.oldest));
   if (opts.newest) url.searchParams.set("newest", String(opts.newest));
   return url.toString();
+}
+
+function flattenObject(input, prefix = "", out = []) {
+  if (input == null) return out;
+  if (Array.isArray(input)) {
+    input.forEach((v, i) => flattenObject(v, `${prefix}[${i}]`, out));
+    return out;
+  }
+  if (typeof input !== "object") {
+    out.push({ key: prefix.toLowerCase(), value: input });
+    return out;
+  }
+  for (const [k, v] of Object.entries(input)) {
+    const path = prefix ? `${prefix}.${k}` : k;
+    flattenObject(v, path, out);
+  }
+  return out;
+}
+
+function extractFirstNumberByKey(flat, keyPatterns, range = {}) {
+  for (const item of flat) {
+    if (!keyPatterns.some((re) => re.test(item.key))) continue;
+    const n = toNumber(item.value);
+    if (!Number.isFinite(n)) continue;
+    if (Number.isFinite(range.min) && n < range.min) continue;
+    if (Number.isFinite(range.max) && n > range.max) continue;
+    return n;
+  }
+  return null;
+}
+
+function extractFirstHoursByKey(flat, keyPatterns) {
+  for (const item of flat) {
+    if (!keyPatterns.some((re) => re.test(item.key))) continue;
+    const h = toHours(item.value);
+    if (Number.isFinite(h) && h > 0 && h < 24) return h;
+  }
+  return null;
 }
 
 function cors(response) {
